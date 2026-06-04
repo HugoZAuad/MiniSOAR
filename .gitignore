@@ -1,0 +1,331 @@
+# ==========================================
+# DEPENDENCIES
+# ==========================================
+node_modules/
+/.pnp
+.pnp.js
+.pnp.cjs
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/sdks
+!.yarn/versions
+package-lock.json.bak
+yarn.lock.bak
+pnpm-lock.yaml.bak
+
+# ==========================================
+# NEXT.JS
+# ==========================================
+/.next/
+/out/
+next-env.d.ts
+.next
+out/
+
+# ==========================================
+# PRODUCTION / BUILD
+# ==========================================
+/build
+/dist
+/.cache
+.turbo
+*.tsbuildinfo
+
+# ==========================================
+# TESTING
+# ==========================================
+/coverage
+/.nyc_output
+*.lcov
+.jest/
+jest-results/
+test-results/
+playwright-report/
+tests/.auth/
+test-results.xml
+vitest-output*
+
+# ==========================================
+# ENVIRONMENT VARIABLES
+# ==========================================
+.env
+.env.*
+.env.local
+.env.development
+.env.development.local
+.env.test
+.env.test.local
+.env.production
+.env.production.local
+.env.staging
+.env.staging.local
+!.env.example
+!.env.template
+
+# ==========================================
+# LOGS
+# ==========================================
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+
+# ==========================================
+# SYSTEM FILES (OS)
+# ==========================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+.nfs*
+
+# ==========================================
+# IDE / EDITORS
+# ==========================================
+# VSCode
+.vscode
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
+.history/
+*.vsix
+.cursor/
+
+# JetBrains (WebStorm, IntelliJ, etc.)
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+atlassian-ide-plugin.xml
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+*~
+Session.vim
+Sessionx.vim
+.netrwhist
+tags
+[._]*.un~
+
+# Sublime Text
+*.sublime-workspace
+*.sublime-project
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# ==========================================
+# SECURITY / SECRETS
+# ==========================================
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+*.cer
+*.der
+*.csr
+secrets/
+.secrets
+credentials.json
+service-account*.json
+**/serviceAccountKey.json
+*.keystore
+*.jks
+
+# ==========================================
+# DOCKER
+# ==========================================
+docker-compose.yml
+docker-compose.override.yml
+.docker/
+
+# ==========================================
+# DEPLOYMENT / HOSTING
+# ==========================================
+.vercel
+.netlify
+.serverless/
+.firebase/
+firebaserc
+.amplify/
+
+# ==========================================
+# DATABASE
+# ==========================================
+/data/
+*.sqlite
+*.sqlite3
+*.db
+*.sql
+*.sql.gz
+*.dump
+prisma/migrations/**/migration_lock.toml
+
+# ==========================================
+# TEMPORARY FILES
+# ==========================================
+tmp/
+temp/
+.tmp/
+.temp/
+*.tmp
+*.temp
+temp_*
+*.bak
+*.backup
+*.swp
+*.swo
+*~
+
+# ==========================================
+# COMPILED / GENERATED FILES
+# ==========================================
+*.js.map
+*.d.ts.map
+*.chunk.js
+*.bundle.js
+.sass-cache/
+*.css.map
+
+# ==========================================
+# PACKAGES / ARCHIVES
+# ==========================================
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+*.tgz
+
+# ==========================================
+# MEDIA FILES (OPTIONAL - UNCOMMENT IF NEEDED)
+# ==========================================
+# *.mp4
+# *.mp3
+# *.wav
+# *.flac
+# *.avi
+# *.mov
+# *.wmv
+# *.mkv
+
+# ==========================================
+# IMAGES (LARGE FILES - OPTIONAL)
+# ==========================================
+# *.psd
+# *.ai
+# *.sketch
+
+# ==========================================
+# MISCELLANEOUS
+# ==========================================
+*.pid
+*.seed
+*.pid.lock
+.eslintcache
+.stylelintcache
+.prettiercache
+.npm/
+.node_repl_history
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+*.tgz
+
+# Storybook
+storybook-static/
+*storybook.log
+
+# PWA
+public/sw.js
+public/workbox-*.js
+public/sw.js.map
+public/workbox-*.js.map
+
+# Sentry
+.sentryclirc
+
+# Husky (if using local hooks)
+.husky/_/
+
+.npmrc
+
+
+# Spec Kit
+
+# Base de Conhecimento Local (não versionada)
+.vscode/settings.json
+
+# AIReview (gerado automaticamente pela ferramenta)
+.aireview-port.json
+.playwright-mcp/
+select-fix-validation.png
+
+# Screenshots de QA / debug — não devem ir para o repo
+/qa-*.png
+/screenshot-*.png
+/signin-page.png
+/login-result.png
+/dashboard-*.png
+/toast-*.png
+/[0-9][0-9]-*.png
+
+# Review/session artifacts gerados localmente
+/SESSION-REVIEW.md
+
+.next
+docker-rebuild.ps1
+
+# Playwright
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+/generated/prisma
