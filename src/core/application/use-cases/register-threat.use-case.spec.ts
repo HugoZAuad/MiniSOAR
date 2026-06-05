@@ -169,7 +169,6 @@ describe('RegisterThreatUseCase', () => {
       );
     });
 
-    // NOVO TESTE: Cobre o lado falso (String(error)) do ternário na notificação
     it('deve logar erro se o envio de notificação falhar com throw genérico (string)', async () => {
       notificationMock.sendAlert.mockRejectedValue('Generic string error');
 
@@ -208,7 +207,6 @@ describe('RegisterThreatUseCase', () => {
       );
     });
 
-    // NOVO TESTE: Cobre o lado falso (String(error)) do ternário no firewall
     it('deve logar erro crítico se o firewall falhar com throw genérico (string)', async () => {
       firewallMock.block.mockRejectedValue('Custom String Rejection');
       threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
