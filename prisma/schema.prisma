@@ -8,11 +8,15 @@ datasource db {
 }
 
 model ThreatLog {
-  id        String   @id @default(uuid())
-  indicator String
-  type      String
-  severity  Int
-  createdAt DateTime @default(now())
+  id              String   @id @default(uuid())
+  indicator       String
+  type            String
+  severity        Int
+  country         String?
+  reputationScore Int?
+  recurrencyCount Int      @default(0)
+  hybridScore     Float    @default(0.0)
+  createdAt       DateTime @default(now())
 
   @@map("threat_logs")
 }
