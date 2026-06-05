@@ -25,7 +25,12 @@ describe('FetchGeoIpAdapter', () => {
   it('deve retornar o código do país em caso de sucesso da API', async () => {
     vi.mocked(fetch).mockResolvedValueOnce({
       ok: true,
-      json: () => Promise.resolve({ country: 'BR' }),
+      json: () =>
+        Promise.resolve({
+          status: 'success',
+          countryCode: 'BR',
+          country: 'BR',
+        }),
     } as Response);
 
     const result = await adapter.getCountry('200.200.200.200');
