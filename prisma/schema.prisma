@@ -1,14 +1,18 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
+  url      = env("DATABASE_URL")
+}
+
+model ThreatLog {
+  id        String   @id @default(uuid())
+  indicator String
+  type      String
+  severity  Int
+  createdAt DateTime @default(now())
+
+  @@map("threat_logs")
 }
