@@ -46,6 +46,7 @@ playwright-report/
 tests/.auth/
 test-results.xml
 vitest-output*
+RODAMAP.md
 
 # ==========================================
 # ENVIRONMENT VARIABLES
