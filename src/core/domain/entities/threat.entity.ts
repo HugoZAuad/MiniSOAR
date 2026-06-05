@@ -16,17 +16,17 @@ export class Threat {
   constructor(
     public readonly indicator: string,
     public readonly type: string,
-    public readonly severity: number,
+    public severity: number = 1,
     public readonly createdAt: Date = new Date(),
     id?: string,
   ) {
     this.id = id ?? uuidv4();
-    this.hybridScore = severity;
+    this.hybridScore = this.severity;
     this.validate();
   }
 
   private validate(): void {
-    if (this.severity < 1 || this.severity > 10) {
+    if (!this.severity || this.severity < 1 || this.severity > 10) {
       throw new Error('Severity must be between 1 and 10');
     }
   }
@@ -47,6 +47,7 @@ export class Threat {
     const reputationWeight = this.reputationScore
       ? (this.reputationScore / 100) * 3
       : 0;
+
     const recurrencyWeight = Math.min(this.recurrencyCount * 0.5, 2);
 
     const totalScore = this.severity + reputationWeight + recurrencyWeight;
