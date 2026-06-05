@@ -19,4 +19,14 @@ describe('Threat Entity', () => {
       'Severity must be between 1 and 10',
     );
   });
+
+  it('should return true if it is a high risk threat', () => {
+    const threat = new Threat('1.1.1.1', 'IP', 8);
+    expect(threat.isHighRisk()).toBe(true);
+  });
+
+  it('should return false if it is not a high risk threat', () => {
+    const threat = new Threat('1.1.1.1', 'IP', 7);
+    expect(threat.isHighRisk()).toBe(false);
+  });
 });
