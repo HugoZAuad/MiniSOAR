@@ -1,0 +1,4 @@
+8.8.8.8
+# Isso é um comentário no log, o stream vai ignorar
+malicious-domain.com
+1.1.1.1

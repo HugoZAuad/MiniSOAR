@@ -52,10 +52,6 @@ jobs:
       - name: 🏗️ Build Application
         run: npm run build
 
-      - name: 📊 Test Coverage Report
-        run: npm run test:cov
-        continue-on-error: true
-
       - name: 📤 Upload Coverage to Artifacts
         uses: actions/upload-artifact@v4
         with:

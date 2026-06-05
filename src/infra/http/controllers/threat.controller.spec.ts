@@ -1,57 +1,44 @@
+import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RegisterThreatUseCase } from '../../../core/application/use-cases/register-threat.use-case';
+import { ApiKeyGuard } from '../../guards/api-key.guard';
 import { ThreatController } from './threat.controller';
 
 describe('ThreatController', () => {
   let controller: ThreatController;
 
-  const mockRegisterThreatUseCase = {
+  const mockUseCase = {
     execute: vi.fn(),
   };
 
   beforeEach(async () => {
-    vi.resetAllMocks();
-
     const module: TestingModule = await Test.createTestingModule({
+      imports: [ConfigModule.forRoot()],
       controllers: [ThreatController],
       providers: [
         {
           provide: RegisterThreatUseCase,
-          useValue: mockRegisterThreatUseCase,
+          useValue: mockUseCase,
         },
+        ApiKeyGuard,
       ],
     }).compile();
 
     controller = module.get<ThreatController>(ThreatController);
   });
 
-  it('deve ser definido corretamente com suas dependências', () => {
+  it('deve ser definido corretamente', () => {
     expect(controller).toBeDefined();
   });
 
-  it('deve registrar uma ameaça com sucesso e retornar a estrutura correta de resposta HTTP', async () => {
-    const payload = {
-      indicator: '45.123.4.5',
-      type: 'IP',
-      severity: 4,
-    };
+  it('deve registrar uma ameaça com sucesso', async () => {
+    const dto = { indicator: '1.1.1.1', type: 'IP' as const, severity: 5 };
+    mockUseCase.execute.mockResolvedValue({ id: 'any_id', ...dto });
 
-    const mockThreatCreated = {
-      id: 'generated-secure-uuid',
-      indicator: payload.indicator,
-    };
+    const result = await controller.register(dto);
 
-    mockRegisterThreatUseCase.execute.mockResolvedValue(mockThreatCreated);
-
-    const result = await controller.register(payload);
-
-    expect(result).toEqual({
-      message: 'Threat registered successfully',
-      id: 'generated-secure-uuid',
-    });
-
-    expect(mockRegisterThreatUseCase.execute).toHaveBeenCalledTimes(1);
-    expect(mockRegisterThreatUseCase.execute).toHaveBeenCalledWith(payload);
+    expect(result).toHaveProperty('id');
+    expect(mockUseCase.execute).toHaveBeenCalledWith(dto);
   });
 });

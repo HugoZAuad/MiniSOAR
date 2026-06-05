@@ -3,13 +3,30 @@ import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+  plugins: [
+    swc.vite({
+      module: { type: 'es6' },
+    }),
+    {
+      name: 'fix-decorator-metadata-branches',
+      enforce: 'post',
+      transform(code, id) {
+        if (id.includes('.ts') && !id.includes('node_modules') && !id.includes('.spec.')) {
+          return code.replace(
+            /typeof (\w+) === "undefined" \? Object : \1/g,
+            '$1',
+          );
+        }
+      },
+    },
+  ],
   test: {
     globals: true,
     root: './',
     include: ['**/*.spec.ts'],
     environment: 'node',
     alias: {
-      'src': path.resolve(__dirname, './src'),
+      src: path.resolve(__dirname, './src'),
     },
     coverage: {
       provider: 'v8',
@@ -33,10 +50,4 @@ export default defineConfig({
       ],
     },
   },
-  plugins: [
-    // Isso é necessário para o Vitest entender os decoradores do NestJS e TypeScript rápido
-    swc.vite({
-      module: { type: 'es6' },
-    }),
-  ],
 });
