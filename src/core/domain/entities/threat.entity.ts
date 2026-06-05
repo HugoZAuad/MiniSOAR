@@ -1,7 +1,17 @@
 import { v4 as uuidv4 } from 'uuid';
 
+export interface ThreatEnrichment {
+  country?: string;
+  reputationScore?: number;
+  recurrencyCount?: number;
+}
+
 export class Threat {
   public readonly id: string;
+  public country?: string;
+  public reputationScore?: number;
+  public recurrencyCount: number = 0;
+  public hybridScore: number;
 
   constructor(
     public readonly indicator: string,
@@ -11,6 +21,7 @@ export class Threat {
     id?: string,
   ) {
     this.id = id ?? uuidv4();
+    this.hybridScore = severity;
     this.validate();
   }
 
@@ -21,6 +32,25 @@ export class Threat {
   }
 
   public isHighRisk(): boolean {
-    return this.severity >= 8;
+    return this.hybridScore >= 8;
+  }
+
+  public enrich(data: ThreatEnrichment): void {
+    this.country = data.country ?? this.country;
+    this.reputationScore = data.reputationScore ?? this.reputationScore;
+    this.recurrencyCount = data.recurrencyCount ?? this.recurrencyCount;
+
+    this.calculateHybridScore();
+  }
+
+  private calculateHybridScore(): void {
+    const reputationWeight = this.reputationScore
+      ? (this.reputationScore / 100) * 3
+      : 0;
+    const recurrencyWeight = Math.min(this.recurrencyCount * 0.5, 2);
+
+    const totalScore = this.severity + reputationWeight + recurrencyWeight;
+
+    this.hybridScore = Number(Math.min(10, totalScore).toFixed(1));
   }
 }

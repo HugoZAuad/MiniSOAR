@@ -1,6 +1,7 @@
-import { IsString, IsInt, Min, Max, IsNotEmpty } from 'class-validator';
+import { IsInt, IsNotEmpty, IsString, Max, Min } from 'class-validator';
+import { RegisterThreatInput } from '../../../core/application/interface/register-threat.input';
 
-export class RegisterThreatDto {
+export class RegisterThreatDto implements RegisterThreatInput {
   @IsString()
   @IsNotEmpty()
   indicator!: string;
