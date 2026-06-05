@@ -1,7 +1,7 @@
 import {
-  ExceptionFilter,
-  Catch,
   ArgumentsHost,
+  Catch,
+  ExceptionFilter,
   HttpException,
   HttpStatus,
 } from '@nestjs/common';
@@ -28,12 +28,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       statusCode: status,
       timestamp: new Date().toISOString(),
       path: request.url,
-      error: typeof exceptionResponse === 'object' 
-        ? (exceptionResponse as any).error 
-        : 'Internal Error',
-      message: typeof exceptionResponse === 'object' 
-        ? (exceptionResponse as any).message 
-        : exceptionResponse,
+      error:
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? (exceptionResponse as Record<string, unknown>).error
+          : 'Internal Error',
+      message:
+        typeof exceptionResponse === 'object' && exceptionResponse !== null
+          ? (exceptionResponse as Record<string, unknown>).message
+          : exceptionResponse,
     });
   }
 }

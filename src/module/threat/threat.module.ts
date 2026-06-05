@@ -1,9 +1,11 @@
 import { Module } from '@nestjs/common';
+import { RegisterThreatUseCase } from '../../core/application/use-cases/register-threat.use-case';
+import { THREAT_REPOSITORY_TOKEN } from '../../core/domain/repositories/threat-repository.token';
 import { DatabaseModule } from '../../infra/database/database.module';
 import { PrismaThreatRepository } from '../../infra/database/prisma/repositories/prisma-threat.repository';
-import { RegisterThreatUseCase } from '../../core/application/use-cases/register-threat.use-case';
 import { ThreatController } from '../../infra/http/controllers/threat.controller';
-import { THREAT_REPOSITORY_TOKEN } from '../../core/domain/repositories/threat-repository.token';
+
+import { ThreatRepository } from '../../core/domain/repositories/threat-repository.interface';
 
 @Module({
   imports: [DatabaseModule],
@@ -15,7 +17,7 @@ import { THREAT_REPOSITORY_TOKEN } from '../../core/domain/repositories/threat-r
     },
     {
       provide: RegisterThreatUseCase,
-      useFactory: (repo) => new RegisterThreatUseCase(repo),
+      useFactory: (repo: ThreatRepository) => new RegisterThreatUseCase(repo),
       inject: [THREAT_REPOSITORY_TOKEN],
     },
   ],
