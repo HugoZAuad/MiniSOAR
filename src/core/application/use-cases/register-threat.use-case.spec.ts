@@ -1,103 +1,232 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { ThreatEmbedFactory } from '../../../infra/providers/notification/factories/threat-embed.factory';
 import { Threat } from '../../domain/entities/threat.entity';
-import type { GeoIpPort } from '../../domain/ports/geoip.port';
-import type { ThreatIntelligencePort } from '../../domain/ports/threat-intelligence.port';
-import type { ThreatRepository } from '../../domain/repositories/threat-repository.interface';
 import { RegisterThreatUseCase } from './register-threat.use-case';
+
+vi.mock('../../../infra/providers/notification/factories/threat-embed.factory');
 
 describe('RegisterThreatUseCase', () => {
   let sut: RegisterThreatUseCase;
 
-  const mockSave = vi.fn();
-  const mockFindAll = vi.fn();
-  const mockCountByIndicator = vi.fn();
-  const mockGetReputationScore = vi.fn();
-  const mockGetCountry = vi.fn();
+  const threatRepositoryMock = {
+    save: vi.fn(),
+    countByIndicator: vi.fn(),
+  };
+
+  const threatIntelligenceMock = {
+    getReputationScore: vi.fn(),
+  };
+
+  const geoIpMock = {
+    getCountry: vi.fn(),
+  };
+
+  const notificationMock = {
+    sendAlert: vi.fn(),
+  };
+
+  const firewallMock = {
+    block: vi.fn(),
+  };
+
+  const loggerMock = {
+    error: vi.fn(),
+    warn: vi.fn(),
+    log: vi.fn(),
+  };
 
   beforeEach(() => {
     vi.resetAllMocks();
 
-    mockSave.mockResolvedValue(undefined);
-    mockCountByIndicator.mockResolvedValue(0);
-    mockGetReputationScore.mockResolvedValue(0);
-    mockGetCountry.mockResolvedValue(undefined);
-
-    const repositoryMock: ThreatRepository = {
-      save: mockSave,
-      findAll: mockFindAll,
-      countByIndicator: mockCountByIndicator,
-    };
-
-    const intelligencePortMock: ThreatIntelligencePort = {
-      getReputationScore: mockGetReputationScore,
-    };
-
-    const geoIpPortMock: GeoIpPort = {
-      getCountry: mockGetCountry,
-    };
+    threatRepositoryMock.countByIndicator.mockResolvedValue(0);
+    threatIntelligenceMock.getReputationScore.mockResolvedValue(0);
+    geoIpMock.getCountry.mockResolvedValue('BR');
 
     sut = new RegisterThreatUseCase(
-      repositoryMock,
-      intelligencePortMock,
-      geoIpPortMock,
+      threatRepositoryMock as never,
+      threatIntelligenceMock,
+      geoIpMock,
+      notificationMock,
+      firewallMock,
     );
+
+    Object.defineProperty(sut, 'logger', { value: loggerMock });
   });
 
-  it('deve registrar uma nova ameaça e enriquecê-la com sucesso com dados externos', async () => {
-    mockCountByIndicator.mockResolvedValue(3);
-    mockGetReputationScore.mockResolvedValue(75);
-    mockGetCountry.mockResolvedValue('BR');
+  describe('execute', () => {
+    it('deve criar uma Threat com os dados recebidos no input', async () => {
+      const result = await sut.execute({
+        indicator: '1.1.1.1',
+        type: 'IP',
+        severity: 3,
+      });
 
-    const data = {
-      indicator: '192.168.1.1',
-      type: 'IP',
-      severity: 5,
-    };
+      expect(result).toBeInstanceOf(Threat);
+      expect(result.indicator).toBe('1.1.1.1');
+      expect(result.type).toBe('IP');
+      expect(result.severity).toBe(3);
+    });
 
-    const result = await sut.execute(data);
+    it('deve chamar repositório, intelligence e geoip em paralelo', async () => {
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
 
-    expect(result.indicator).toBe(data.indicator);
-    expect(result.type).toBe(data.type);
-    expect(result.severity).toBe(data.severity);
-    expect(result.id).toBeDefined();
+      expect(threatRepositoryMock.countByIndicator).toHaveBeenCalledWith(
+        '1.1.1.1',
+      );
+      expect(threatIntelligenceMock.getReputationScore).toHaveBeenCalledWith(
+        '1.1.1.1',
+      );
+      expect(geoIpMock.getCountry).toHaveBeenCalledWith('1.1.1.1');
+    });
 
-    expect(result.country).toBe('BR');
-    expect(result.reputationScore).toBe(75);
-    expect(result.recurrencyCount).toBe(3);
+    it('deve enriquecer a threat com os dados coletados', async () => {
+      threatRepositoryMock.countByIndicator.mockResolvedValue(5);
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(80);
+      geoIpMock.getCountry.mockResolvedValue('CN');
 
-    expect(result.hybridScore).toBe(8.8);
-    expect(result.isHighRisk()).toBe(true);
+      const result = await sut.execute({
+        indicator: '2.2.2.2',
+        type: 'IP',
+        severity: 5,
+      });
 
-    expect(mockCountByIndicator).toHaveBeenCalledWith(data.indicator);
-    expect(mockGetReputationScore).toHaveBeenCalledWith(data.indicator);
-    expect(mockGetCountry).toHaveBeenCalledWith(data.indicator);
+      expect(result.recurrencyCount).toBe(5);
+      expect(result.reputationScore).toBe(80);
+      expect(result.country).toBe('CN');
+    });
 
-    expect(mockSave).toHaveBeenCalledTimes(1);
-    expect(mockSave).toHaveBeenCalledWith(expect.any(Threat));
+    it('deve salvar a threat no repositório após enriquecer', async () => {
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
+
+      expect(threatRepositoryMock.save).toHaveBeenCalledTimes(1);
+      expect(threatRepositoryMock.save).toHaveBeenCalledWith(
+        expect.any(Threat),
+      );
+    });
+
+    it('deve retornar a threat após execução', async () => {
+      const result = await sut.execute({
+        indicator: '1.1.1.1',
+        type: 'IP',
+        severity: 3,
+      });
+
+      expect(result).toBeInstanceOf(Threat);
+    });
+
+    it('não deve acionar mitigação se a threat não for alto risco', async () => {
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(0);
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 1 });
+
+      expect(firewallMock.block).not.toHaveBeenCalled();
+    });
+
+    it('deve acionar mitigação via firewall se a threat for alto risco', async () => {
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
+
+      expect(firewallMock.block).toHaveBeenCalledWith('1.1.1.1', 'IP');
+    });
+
+    it('deve logar warn ao acionar o playbook de mitigação', async () => {
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
+
+      expect(loggerMock.warn).toHaveBeenCalledWith(
+        expect.stringContaining('[SOAR 🛡️]'),
+      );
+    });
   });
 
-  it('deve registrar a ameaça utilizando valores padrão caso os enriquecimentos externos falhem', async () => {
-    mockCountByIndicator.mockResolvedValue(0);
-    mockGetReputationScore.mockResolvedValue(0);
-    mockGetCountry.mockResolvedValue(undefined);
+  describe('dispatchNotification', () => {
+    it('deve chamar ThreatEmbedFactory.create e notification.sendAlert', async () => {
+      const fakeEmbed = { title: 'Threat Alert' };
+      vi.mocked(ThreatEmbedFactory.create).mockReturnValue(fakeEmbed as never);
 
-    const data = {
-      indicator: '1.1.1.1',
-      type: 'IP',
-      severity: 3,
-    };
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
 
-    const result = await sut.execute(data);
+      expect(ThreatEmbedFactory.create).toHaveBeenCalledWith(
+        expect.any(Threat),
+      );
+      expect(notificationMock.sendAlert).toHaveBeenCalledWith(fakeEmbed);
+    });
 
-    expect(result.indicator).toBe(data.indicator);
-    expect(result.country).toBeUndefined();
-    expect(result.reputationScore).toBe(0);
-    expect(result.recurrencyCount).toBe(0);
+    it('deve logar erro se o envio de notificação falhar com instância de Error', async () => {
+      notificationMock.sendAlert.mockRejectedValue(
+        new Error('Notification error'),
+      );
 
-    expect(result.hybridScore).toBe(3.0);
-    expect(result.isHighRisk()).toBe(false);
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
 
-    expect(mockSave).toHaveBeenCalledTimes(1);
-    expect(mockSave).toHaveBeenCalledWith(expect.any(Threat));
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1',
+        ),
+        'Notification error',
+      );
+    });
+
+    it('deve logar erro se o envio de notificação falhar com throw genérico (string)', async () => {
+      notificationMock.sendAlert.mockRejectedValue('Generic string error');
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1',
+        ),
+        'Generic string error',
+      );
+    });
+
+    it('não deve propagar erro de notificação para o caller', async () => {
+      notificationMock.sendAlert.mockRejectedValue(
+        new Error('Notification error'),
+      );
+
+      await expect(
+        sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 }),
+      ).resolves.toBeInstanceOf(Threat);
+    });
+  });
+
+  describe('dispatchMitigation', () => {
+    it('deve logar erro crítico se o firewall falhar com instância de Error', async () => {
+      firewallMock.block.mockRejectedValue(new Error('Firewall error'));
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[SOAR ❌] Falha crítica ao executar Resposta Ativa para 1.1.1.1: Firewall error',
+        ),
+      );
+    });
+
+    it('deve logar erro crítico se o firewall falhar com throw genérico (string)', async () => {
+      firewallMock.block.mockRejectedValue('Custom String Rejection');
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
+
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
+
+      expect(loggerMock.error).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '[SOAR ❌] Falha crítica ao executar Resposta Ativa para 1.1.1.1: Custom String Rejection',
+        ),
+      );
+    });
+
+    it('não deve propagar erro de mitigação para o caller', async () => {
+      firewallMock.block.mockRejectedValue(new Error('Firewall error'));
+      threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
+
+      await expect(
+        sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 }),
+      ).resolves.toBeInstanceOf(Threat);
+    });
   });
 });

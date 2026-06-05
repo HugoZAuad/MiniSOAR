@@ -18,18 +18,25 @@
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --inspect --logHeapUsage --threads=false",
     "test:e2e": "vitest run --config ./test/vitest-e2e.config.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "cli": "ts-node -r tsconfig-paths/register src/main-cli.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
+    "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.0.1",
     "@nestjs/platform-express": "^11.0.1",
+    "@nestjs/throttler": "^6.5.0",
     "@prisma/client": "5.22.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
+    "nest-commander": "^3.20.1",
+    "nest-winston": "^1.10.2",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "winston": "^3.19.0",
+    "winston-daily-rotate-file": "^5.0.0"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
@@ -86,11 +93,10 @@
       "node_modules/(?!uuid)"
     ]
   },
-
   "lint-staged": {
-  "src/**/*.ts": [
-    "eslint --fix",
-    "prettier --write"
-  ]
-}
+    "src/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  }
 }
