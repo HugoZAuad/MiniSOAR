@@ -21,6 +21,15 @@ export class PrismaThreatRepository implements ThreatRepository {
 
   async findAll(): Promise<Threat[]> {
     const logs = await this.prisma.threatLog.findMany();
-    return logs.map(log => new Threat(log.indicator, log.type, log.severity, log.createdAt, log.id));
+    return logs.map(
+      (log) =>
+        new Threat(
+          log.indicator,
+          log.type,
+          log.severity,
+          log.createdAt,
+          log.id,
+        ),
+    );
   }
 }
