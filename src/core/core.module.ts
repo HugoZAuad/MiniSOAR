@@ -26,6 +26,6 @@ import { THREAT_REPOSITORY_TOKEN } from './domain/repositories/threat-repository
     { provide: FIREWALL_PORT, useClass: LocalFirewallService },
     { provide: EVENT_DISPATCHER_PORT, useClass: EventEmitterAdapter },
   ],
-  exports: [RegisterThreatUseCase],
+  exports: [RegisterThreatUseCase, IndicatorService],
 })
 export class CoreModule {}
