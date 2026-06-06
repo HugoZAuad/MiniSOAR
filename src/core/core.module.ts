@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
+import { IndicatorService } from '../core/services/indicator.service';
 import { EventEmitterAdapter } from '../infra/adapters/event/event-emitter.adapter';
 import { FetchGeoIpAdapter } from '../infra/adapters/geoip/fetch-geoip.adapter';
 import { PrismaThreatRepository } from '../infra/database/prisma/repositories/prisma-threat.repository';
 import { LocalFirewallService } from '../infra/providers/firewall/local-firewall.service';
 import { DiscordService } from '../infra/providers/notification/discord.service';
 import { RegisterThreatUseCase } from './application/use-cases/register-threat.use-case';
-import { IndicatorService } from './services/indicator.service';
 
 export const THREAT_REPOSITORY = 'THREAT_REPOSITORY_TOKEN';
 export const THREAT_INTEL_PORT = 'THREAT_INTEL_PORT';

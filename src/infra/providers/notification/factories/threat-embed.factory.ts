@@ -1,5 +1,22 @@
 import { Threat } from '../../../../core/domain/entities/threat.entity';
-import { NotificationEmbed } from '../../../../core/domain/ports/notification.port';
+
+export interface EmbedField {
+  name: string;
+  value: string;
+  inline?: boolean;
+}
+
+export interface NotificationEmbed {
+  title: string;
+  description: string;
+  color: number;
+  fields: EmbedField[];
+  footer?: {
+    text: string;
+    icon_url?: string;
+  };
+  timestamp?: string;
+}
 
 export class ThreatEmbedFactory {
   static create(threat: Threat): NotificationEmbed {
