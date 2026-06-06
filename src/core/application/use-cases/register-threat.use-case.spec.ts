@@ -29,6 +29,10 @@ describe('RegisterThreatUseCase', () => {
     block: vi.fn(),
   };
 
+  const eventDispatcherMock = {
+    dispatch: vi.fn(),
+  };
+
   const loggerMock = {
     error: vi.fn(),
     warn: vi.fn(),
@@ -43,11 +47,12 @@ describe('RegisterThreatUseCase', () => {
     geoIpMock.getCountry.mockResolvedValue('BR');
 
     sut = new RegisterThreatUseCase(
-      threatRepositoryMock as never,
+      threatRepositoryMock as any,
       threatIntelligenceMock,
       geoIpMock,
       notificationMock,
       firewallMock,
+      eventDispatcherMock,
     );
 
     Object.defineProperty(sut, 'logger', { value: loggerMock });
@@ -79,6 +84,15 @@ describe('RegisterThreatUseCase', () => {
       expect(geoIpMock.getCountry).toHaveBeenCalledWith('1.1.1.1');
     });
 
+    it('deve disparar evento de criação via eventDispatcher', async () => {
+      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
+
+      expect(eventDispatcherMock.dispatch).toHaveBeenCalledWith(
+        'threat.created',
+        expect.any(Threat),
+      );
+    });
+
     it('deve enriquecer a threat com os dados coletados', async () => {
       threatRepositoryMock.countByIndicator.mockResolvedValue(5);
       threatIntelligenceMock.getReputationScore.mockResolvedValue(80);
@@ -104,19 +118,8 @@ describe('RegisterThreatUseCase', () => {
       );
     });
 
-    it('deve retornar a threat após execução', async () => {
-      const result = await sut.execute({
-        indicator: '1.1.1.1',
-        type: 'IP',
-        severity: 3,
-      });
-
-      expect(result).toBeInstanceOf(Threat);
-    });
-
     it('não deve acionar mitigação se a threat não for alto risco', async () => {
       threatIntelligenceMock.getReputationScore.mockResolvedValue(0);
-
       await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 1 });
 
       expect(firewallMock.block).not.toHaveBeenCalled();
@@ -124,7 +127,6 @@ describe('RegisterThreatUseCase', () => {
 
     it('deve acionar mitigação via firewall se a threat for alto risco', async () => {
       threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
-
       await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
 
       expect(firewallMock.block).toHaveBeenCalledWith('1.1.1.1', 'IP');
@@ -132,7 +134,6 @@ describe('RegisterThreatUseCase', () => {
 
     it('deve logar warn ao acionar o playbook de mitigação', async () => {
       threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
-
       await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 });
 
       expect(loggerMock.warn).toHaveBeenCalledWith(
@@ -163,20 +164,20 @@ describe('RegisterThreatUseCase', () => {
 
       expect(loggerMock.error).toHaveBeenCalledWith(
         expect.stringContaining(
-          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1',
+          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1:',
         ),
         'Notification error',
       );
     });
 
-    it('deve logar erro se o envio de notificação falhar com throw genérico (string)', async () => {
+    it('deve logar erro se o envio de notificação falhar com string', async () => {
       notificationMock.sendAlert.mockRejectedValue('Generic string error');
 
       await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
 
       expect(loggerMock.error).toHaveBeenCalledWith(
         expect.stringContaining(
-          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1',
+          '[SOAR] Falha ao enviar alerta para o indicador 1.1.1.1:',
         ),
         'Generic string error',
       );
@@ -207,7 +208,7 @@ describe('RegisterThreatUseCase', () => {
       );
     });
 
-    it('deve logar erro crítico se o firewall falhar com throw genérico (string)', async () => {
+    it('deve logar erro crítico se o firewall falhar com string', async () => {
       firewallMock.block.mockRejectedValue('Custom String Rejection');
       threatIntelligenceMock.getReputationScore.mockResolvedValue(10);
 

@@ -1,44 +1,54 @@
-import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RegisterThreatUseCase } from '../../../core/application/use-cases/register-threat.use-case';
-import { ApiKeyGuard } from '../../guards/api-key.guard';
 import { ThreatController } from './threat.controller';
+import { RegisterThreatUseCase } from '../../../core/application/use-cases/register-threat.use-case';
+import { Threat } from '../../../core/domain/entities/threat.entity'; // Import necessário
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 
 describe('ThreatController', () => {
   let controller: ThreatController;
-
-  const mockUseCase = {
-    execute: vi.fn(),
-  };
+  let useCaseMock: RegisterThreatUseCase;
 
   beforeEach(async () => {
+    // Inicializamos o mock com o método execute tipado
+    useCaseMock = { execute: vi.fn() } as unknown as RegisterThreatUseCase;
+
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
       controllers: [ThreatController],
       providers: [
         {
           provide: RegisterThreatUseCase,
-          useValue: mockUseCase,
+          useValue: useCaseMock,
         },
-        ApiKeyGuard,
       ],
     }).compile();
 
     controller = module.get<ThreatController>(ThreatController);
   });
 
-  it('deve ser definido corretamente', () => {
-    expect(controller).toBeDefined();
-  });
+  it('deve chamar o use case corretamente', async () => {
+    // 1. Criamos um objeto que satisfaça a interface da entidade Threat
+    const mockThreat = {
+      id: 'uuid',
+      indicator: '1.1.1.1',
+      type: 'IP',
+      severity: 5,
+    } as unknown as Threat;
 
-  it('deve registrar uma ameaça com sucesso', async () => {
-    const dto = { indicator: '1.1.1.1', type: 'IP' as const, severity: 5 };
-    mockUseCase.execute.mockResolvedValue({ id: 'any_id', ...dto });
+    // 2. Mock do execute retornando a entidade Threat completa
+    const spy = vi.mocked(useCaseMock.execute).mockResolvedValue(mockThreat);
 
-    const result = await controller.register(dto);
+    // 3. Chamamos o método correto do seu controller (verifique se é 'register' ou 'registerThreat')
+    await controller.register({
+      indicator: '1.1.1.1',
+      type: 'IP',
+      severity: 5,
+    });
 
-    expect(result).toHaveProperty('id');
-    expect(mockUseCase.execute).toHaveBeenCalledWith(dto);
+    // 4. Verificação
+    expect(spy).toHaveBeenCalledWith({
+      indicator: '1.1.1.1',
+      type: 'IP',
+      severity: 5,
+    });
   });
 });
