@@ -1,5 +1,6 @@
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import 'winston-daily-rotate-file';
@@ -38,8 +39,21 @@ async function bootstrap() {
     }),
   });
 
+  app.use(helmet());
+
+  app.enableCors({
+    origin: ['http://localhost:3000'],
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    credentials: true,
+  });
+
+  app.enableShutdownHooks();
+
+  app.setGlobalPrefix('api/v1');
+
   app.useGlobalFilters(new HttpExceptionFilter());
   app.useGlobalInterceptors(new LoggingInterceptor());
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -48,6 +62,13 @@ async function bootstrap() {
     }),
   );
 
-  await app.listen(process.env.PORT ?? 3000);
+  const port = process.env.PORT ?? 3000;
+  await app.listen(port);
+
+  Logger.log(
+    `🚀 Aplicação a correr em: http://localhost:${port}/api/v1`,
+    'Bootstrap',
+  );
 }
+
 void bootstrap();
