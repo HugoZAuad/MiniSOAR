@@ -1,14 +1,23 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import { ThreatEmbedFactory } from '../../../infra/providers/notification/factories/threat-embed.factory';
 import { Threat } from '../../domain/entities/threat.entity';
-import type { FirewallPort } from '../../domain/ports/firewall.port';
-import { FIREWALL_PORT } from '../../domain/ports/firewall.port';
-import type { GeoIpPort } from '../../domain/ports/geoip.port';
-import { GEOIP_PORT } from '../../domain/ports/geoip.port';
-import type { NotificationPort } from '../../domain/ports/notification.port';
-import { NOTIFICATION_PORT } from '../../domain/ports/notification.port';
-import type { ThreatIntelligencePort } from '../../domain/ports/threat-intelligence.port';
-import { THREAT_INTELLIGENCE_PORT } from '../../domain/ports/threat-intelligence.port';
+import {
+  EVENT_DISPATCHER_PORT,
+  type EventDispatcher,
+} from '../../domain/ports/event-dispatcher.port';
+import {
+  FIREWALL_PORT,
+  type FirewallPort,
+} from '../../domain/ports/firewall.port';
+import { GEOIP_PORT, type GeoIpPort } from '../../domain/ports/geoip.port';
+import {
+  NOTIFICATION_PORT,
+  type NotificationPort,
+} from '../../domain/ports/notification.port';
+import {
+  THREAT_INTELLIGENCE_PORT,
+  type ThreatIntelligencePort,
+} from '../../domain/ports/threat-intelligence.port';
 import type { ThreatRepository } from '../../domain/repositories/threat-repository.interface';
 import { THREAT_REPOSITORY_TOKEN } from '../../domain/repositories/threat-repository.token';
 import { RegisterThreatInput } from '../interface/register-threat.input';
@@ -20,18 +29,16 @@ export class RegisterThreatUseCase {
   constructor(
     @Inject(THREAT_REPOSITORY_TOKEN)
     private readonly threatRepository: ThreatRepository,
-
     @Inject(THREAT_INTELLIGENCE_PORT)
     private readonly threatIntelligence: ThreatIntelligencePort,
-
     @Inject(GEOIP_PORT)
     private readonly geoIp: GeoIpPort,
-
     @Inject(NOTIFICATION_PORT)
     private readonly notification: NotificationPort,
-
     @Inject(FIREWALL_PORT)
     private readonly firewall: FirewallPort,
+    @Inject(EVENT_DISPATCHER_PORT)
+    private readonly eventDispatcher: EventDispatcher,
   ) {}
 
   async execute(data: RegisterThreatInput): Promise<Threat> {
@@ -50,6 +57,8 @@ export class RegisterThreatUseCase {
     });
 
     await this.threatRepository.save(threat);
+
+    this.eventDispatcher.dispatch('threat.created', threat);
 
     void this.dispatchNotification(threat);
 

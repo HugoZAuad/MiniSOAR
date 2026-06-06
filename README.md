@@ -1,98 +1,175 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# 🛡️ MiniSOAR (SOAR Miniaturizado)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
+![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+> **Orquestração, Automação e Resposta de Segurança** em escala compacta — do indicador de ameaça ao alerta, com resposta ativa quando necessário.
 
-## Description
+O **MiniSOAR** é uma plataforma de automação de segurança desenvolvida em **NestJS (TypeScript)**, pautada nos princípios da **Clean Architecture**. O sistema processa indicadores de ameaça (**IP**, **DOMAIN**, **HASH**), enriquecendo-os com dados de inteligência e geo-localização, calculando um score de risco e orquestrando respostas automatizadas.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+---
 
-## Project setup
+## 📑 Tabela de Conteúdo
 
-```bash
-$ npm install
+- [Funcionalidades](#-funcionalidades)
+- [Arquitetura](#-arquitetura)
+- [Fluxo de Processamento](#-fluxo-de-processamento)
+- [Como Utilizar](#-como-utilizar)
+- [API & CLI](#-api--cli)
+- [Configuração](#-configuração)
+- [Testes e Qualidade](#-testes-e-qualidade)
+- [Observabilidade](#-observabilidade)
+
+---
+
+## 🚀 Funcionalidades
+
+- **Ingestão Versátil:** Processamento via **API HTTP** (real-time) ou **CLI** com processamento **por Stream** (lote).
+- **Inteligência Tática:** Enriquecimento automático (Reputação externa, GeoIP, Recorrência interna).
+- **Risco Híbrido:** Cálculo de score customizado para priorização de incidentes.
+- **Resposta Ativa:** Contenção automática (Firewall/Bloqueio) para ameaças de alto risco.
+- **Notificação:** Alertas táticos em tempo real via **webhook do Discord** (Embeds estruturados).
+- **Persistência Segura:** Histórico e auditoria com **Prisma ORM** e **PostgreSQL**.
+
+---
+
+## 🏗️ Arquitetura
+
+O projeto segue estritamente a **Clean Architecture (Ports & Adapters)**, garantindo baixo acoplamento e facilidade de evolução.
+
+```text
+src/
+├── core/             # Lógica de Negócio (Entities, Use Cases, Interfaces)
+├── infra/            # Implementações de Infraestrutura (Adapters, HTTP, CLI, DB)
+└── module/          # Módulos NestJS (DI/Config de wiring)
 ```
 
-## Compile and run the project
+- **Domain (core/domain):** Entidades (ex.: `Threat`) e contratos de portas/repositórios.
+- **Application (core/application):** Casos de uso (ex.: `RegisterThreatUseCase`).
+- **Infrastructure (infra/):** Implementações concretas (Prisma, Discord, Firewall, GeoIP, Threat Intelligence).
+- **Controllers/DTOs/Guards:** camada de entrada e segurança (HTTP) e execução (CLI).
 
+---
+
+## ⚙️ Fluxo de Processamento (RegisterThreatUseCase)
+
+O processamento segue uma pipeline resiliente e **não bloqueante**.
+
+### Entrada
+- Validação de `severity` (**1-10**) e do indicador.
+
+### Enriquecimento Paralelo
+- Busca de **recorrência interna**
+- Busca de **reputação externa** (Threat Intelligence)
+- Busca de **geo-localização** (GeoIP)
+
+> Executado em paralelo com `Promise.all`, reduzindo latência.
+
+### Cálculo de Score
+- A entidade `Threat` aplica lógica de saturação e pesos para determinar o `hybridScore`.
+- A decisão de alto risco usa o limiar `hybridScore >= 8`.
+
+### Persistência
+- Registro do evento no banco (Prisma → Postgres) na tabela `ThreatLog`.
+
+### Notificação (Discord)
+- Envio de **embed tático** via webhook.
+- **Falhas de notificação não derrubam o fluxo** (captura e log de erro).
+
+### Mitigação (Opcional)
+- Se `isHighRisk()` for verdadeiro:
+  - execução do playbook de contenção via `FirewallPort.block(...)`.
+- **Falhas de mitigação não derrubam o caller** (captura e log de erro).
+
+---
+
+## 🛠️ Como Utilizar
+
+### Pré-requisitos
+- Node.js >= 18
+- Postgres
+- Variáveis de ambiente configuradas
+
+### Instalação
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
-
+### Execução (API)
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm run start:dev
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+### Execução (CLI / Scanner de Lote)
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+# Processa um arquivo de indicadores linha a linha
+npm run cli -- scan --file ./data/indicadores.txt
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+---
 
-## Resources
+## 🔗 API & CLI
 
-Check out a few resources that may come in handy when working with NestJS:
+### API HTTP
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+**POST /threats**
 
-## Support
+- **Guard:** `ApiKeyGuard`
+- **Payload (JSON):**
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+```json
+{
+  "indicator": "1.1.1.1",
+  "type": "IP",
+  "severity": 5
+}
+```
 
-## Stay in touch
+### CLI
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+**scan** (modo lote)
 
-## License
+- Lê arquivo com **ReadStream**
+- Identifica o tipo automaticamente (IP/Hash/Domain)
+- Envia cada linha para o use case
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+---
+
+## ⚙️ Configuração
+
+As seguintes variáveis de ambiente são necessárias:
+
+- **`DATABASE_URL`**
+  - String de conexão com o PostgreSQL (usada pelo Prisma)
+
+- **`DISCORD_WEBHOOK_URL`**
+  - Webhook para envio de alertas táticos ao Discord
+  - Se ausente: o sistema apenas loga warning e segue
+
+---
+
+## 🧪 Testes e Qualidade
+
+O projeto mantém alta confiabilidade com testes unitários e integração.
+
+- **Unitários:** `npm test`
+- **E2E:** `npm run test:e2e`
+- **Cobertura:** `npm run test:cov`
+
+---
+
+## 📈 Observabilidade
+
+- Logs centralizados com **Winston** (rotativos em `logs/`)
+- Tratamento global de exceções com **HttpExceptionFilter**
+- **Rate Limiting** com `@nestjs/throttler`
+- Interceptação de requests via **LoggingInterceptor**
+
+---
+
+## 📝 Licença
+
+Projeto desenvolvido sob padrões de arquitetura de software profissional.
+

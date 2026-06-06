@@ -1,4 +1,8 @@
 import { Module } from '@nestjs/common';
+import { EVENT_DISPATCHER_PORT } from 'src/core/domain/ports/event-dispatcher.port';
+import { EventEmitterAdapter } from 'src/infra/adapters/event/event-emitter.adapter';
+import { ThreatGateway } from 'src/infra/gateways/threat.gateway';
+import { GetThreatAnalyticsUseCase } from '../../core/application/use-cases/get-threat-analytics.use-case'; // NOVO
 import { RegisterThreatUseCase } from '../../core/application/use-cases/register-threat.use-case';
 import { GEOIP_PORT } from '../../core/domain/ports/geoip.port';
 import { THREAT_INTELLIGENCE_PORT } from '../../core/domain/ports/threat-intelligence.port';
@@ -8,12 +12,13 @@ import { AbuseIpDbAdapter } from '../../infra/adapters/intelligence/abuseipdb.ad
 import { ScanBatchCommand } from '../../infra/cli/scan-batch.command';
 import { PrismaService } from '../../infra/database/prisma/prisma.service';
 import { PrismaThreatRepository } from '../../infra/database/prisma/repositories/prisma-threat.repository';
+import { AnalyticsController } from '../../infra/http/controllers/analytics.controller';
 import { ThreatController } from '../../infra/http/controllers/threat.controller';
 import { InfraModule } from '../infra/infra.module';
 
 @Module({
   imports: [InfraModule],
-  controllers: [ThreatController],
+  controllers: [ThreatController, AnalyticsController],
   providers: [
     PrismaService,
     {
@@ -28,9 +33,15 @@ import { InfraModule } from '../infra/infra.module';
       provide: THREAT_INTELLIGENCE_PORT,
       useClass: AbuseIpDbAdapter,
     },
+    {
+      provide: EVENT_DISPATCHER_PORT,
+      useClass: EventEmitterAdapter,
+    },
     RegisterThreatUseCase,
+    GetThreatAnalyticsUseCase,
     ScanBatchCommand,
+    ThreatGateway,
   ],
-  exports: [RegisterThreatUseCase],
+  exports: [RegisterThreatUseCase, GetThreatAnalyticsUseCase],
 })
 export class ThreatModule {}

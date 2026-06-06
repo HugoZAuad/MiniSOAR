@@ -1,44 +1,58 @@
-import { ConfigModule } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { FilterThreatsDto } from '../../../core/application/interface/filter-threats.dto';
+import { ListThreatsUseCase } from '../../../core/application/use-cases/list-threats.use-case';
 import { RegisterThreatUseCase } from '../../../core/application/use-cases/register-threat.use-case';
-import { ApiKeyGuard } from '../../guards/api-key.guard';
+import { RegisterThreatDto } from '../../../infra/http/dto/register-threat.dto';
 import { ThreatController } from './threat.controller';
 
 describe('ThreatController', () => {
   let controller: ThreatController;
 
-  const mockUseCase = {
-    execute: vi.fn(),
-  };
+  const registerUseCaseMock = { execute: vi.fn() };
+  const listUseCaseMock = { execute: vi.fn() };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
-      imports: [ConfigModule.forRoot()],
       controllers: [ThreatController],
       providers: [
         {
           provide: RegisterThreatUseCase,
-          useValue: mockUseCase,
+          useValue: registerUseCaseMock,
         },
-        ApiKeyGuard,
+        {
+          provide: ListThreatsUseCase,
+          useValue: listUseCaseMock,
+        },
       ],
     }).compile();
 
     controller = module.get<ThreatController>(ThreatController);
   });
 
-  it('deve ser definido corretamente', () => {
-    expect(controller).toBeDefined();
+  describe('list', () => {
+    it('deve chamar o useCase com os filtros corretos', async () => {
+      const filter: FilterThreatsDto = { page: 1, limit: 10 };
+      listUseCaseMock.execute.mockResolvedValue({ data: [] });
+
+      await controller.list(filter);
+
+      expect(listUseCaseMock.execute).toHaveBeenCalledWith(filter);
+    });
   });
 
-  it('deve registrar uma ameaça com sucesso', async () => {
-    const dto = { indicator: '1.1.1.1', type: 'IP' as const, severity: 5 };
-    mockUseCase.execute.mockResolvedValue({ id: 'any_id', ...dto });
+  describe('register', () => {
+    it('deve chamar o useCase com os dados corretos', async () => {
+      const body: RegisterThreatDto = {
+        indicator: '1.1.1.1',
+        type: 'IP',
+        severity: 1,
+      };
+      registerUseCaseMock.execute.mockResolvedValue({ id: '1' });
 
-    const result = await controller.register(dto);
+      await controller.register(body);
 
-    expect(result).toHaveProperty('id');
-    expect(mockUseCase.execute).toHaveBeenCalledWith(dto);
+      expect(registerUseCaseMock.execute).toHaveBeenCalledWith(body);
+    });
   });
 });
