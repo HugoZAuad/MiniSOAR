@@ -1,1 +1,1 @@
-export const THREAT_REPOSITORY_TOKEN = Symbol('ThreatRepository');
+export const THREAT_REPOSITORY_TOKEN = 'THREAT_REPOSITORY_TOKEN';

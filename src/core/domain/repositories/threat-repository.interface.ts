@@ -11,5 +11,9 @@ export interface ThreatRepository {
   }): Promise<Threat[]>;
   countByIndicator(indicator: string): Promise<number>;
   getAnalytics(): Promise<ThreatAnalyticsDto>;
+  findAll(params?: {
+    indicator?: string;
+    severity?: number;
+  }): Promise<Threat[]>;
   findAllPaginated(params: FilterThreatsDto): Promise<PaginatedThreatsDto>;
 }

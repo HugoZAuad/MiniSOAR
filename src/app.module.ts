@@ -3,7 +3,8 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_GUARD } from '@nestjs/core';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { InfraModule } from './module/infra/infra.module';
+import { CommandsModule } from './infra/cli/commands.module';
+import { InfraModule } from './infra/infra.module';
 import { ThreatModule } from './module/threat/threat.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { ThreatModule } from './module/threat/threat.module';
     ]),
     InfraModule,
     ThreatModule,
+    CommandsModule,
   ],
   providers: [
     {
