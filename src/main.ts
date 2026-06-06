@@ -1,7 +1,6 @@
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
-import { CommandFactory } from 'nest-commander';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import 'winston-daily-rotate-file';
@@ -10,7 +9,6 @@ import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { LoggingInterceptor } from './common/interceptors/logging.interceptor';
 
 async function bootstrap() {
-  await CommandFactory.run(AppModule, ['warn', 'error']);
   const app = await NestFactory.create(AppModule, {
     logger: WinstonModule.createLogger({
       transports: [
@@ -23,18 +21,6 @@ async function bootstrap() {
                 typeof info.context === 'string' ? info.context : 'Application';
               return `[SOAR-API] ${String(info.timestamp)} [${ctx}] ${String(info.level)}: ${String(info.message)}`;
             }),
-          ),
-        }),
-        new winston.transports.DailyRotateFile({
-          dirname: 'logs',
-          filename: 'soar-security-%DATE%.log',
-          datePattern: 'YYYY-MM-DD',
-          zippedArchive: true,
-          maxSize: '20m',
-          maxFiles: '14d',
-          format: winston.format.combine(
-            winston.format.timestamp(),
-            winston.format.json(),
           ),
         }),
       ],
@@ -68,7 +54,7 @@ async function bootstrap() {
   await app.listen(port, '0.0.0.0');
 
   Logger.log(
-    `🚀 Aplicação a correr em: http://localhost:${port}/api/v1`,
+    `🚀 Aplicação a correr em: http://0.0.0.0:${port}/api/v1`,
     'Bootstrap',
   );
 }
