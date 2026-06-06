@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IndicatorService } from '../core/services/indicator.service';
 import { EventEmitterAdapter } from '../infra/adapters/event/event-emitter.adapter';
 import { FetchGeoIpAdapter } from '../infra/adapters/geoip/fetch-geoip.adapter';
+import { DatabaseModule } from '../infra/database/database.module';
 import { PrismaThreatRepository } from '../infra/database/prisma/repositories/prisma-threat.repository';
 import { LocalFirewallService } from '../infra/providers/firewall/local-firewall.service';
 import { DiscordService } from '../infra/providers/notification/discord.service';
@@ -14,10 +15,10 @@ import { THREAT_INTELLIGENCE_PORT } from './domain/ports/threat-intelligence.por
 import { THREAT_REPOSITORY_TOKEN } from './domain/repositories/threat-repository.token';
 
 @Module({
+  imports: [DatabaseModule],
   providers: [
     RegisterThreatUseCase,
     IndicatorService,
-
     { provide: THREAT_REPOSITORY_TOKEN, useClass: PrismaThreatRepository },
     { provide: THREAT_INTELLIGENCE_PORT, useClass: IndicatorService },
     { provide: GEOIP_PORT, useClass: FetchGeoIpAdapter },
