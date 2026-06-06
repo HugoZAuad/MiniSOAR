@@ -6,15 +6,18 @@ import { ListThreatsUseCase } from './list-threats.use-case';
 
 describe('ListThreatsUseCase', () => {
   let useCase: ListThreatsUseCase;
-
-  const mockRepository = {
-    findAllPaginated: vi.fn(),
-  };
+  let mockRepository: ThreatRepository;
 
   beforeEach(() => {
-    useCase = new ListThreatsUseCase(
-      mockRepository as unknown as ThreatRepository,
-    );
+    mockRepository = {
+      findAllPaginated: vi.fn(),
+      findAll: vi.fn(),
+      save: vi.fn(),
+      findById: vi.fn(),
+      countByIndicator: vi.fn(),
+    } as unknown as ThreatRepository;
+
+    useCase = new ListThreatsUseCase(mockRepository);
   });
 
   it('deve chamar o repositório com paginação padrão', async () => {
@@ -26,9 +29,23 @@ describe('ListThreatsUseCase', () => {
     vi.mocked(mockRepository.findAllPaginated).mockResolvedValue(mockResult);
 
     const params: FilterThreatsDto = { page: 1, limit: 10 };
+
     const result = await useCase.execute(params);
 
+    expect(mockRepository.findAllPaginated).toHaveBeenCalledTimes(1);
     expect(mockRepository.findAllPaginated).toHaveBeenCalledWith(params);
     expect(result).toEqual(mockResult);
+  });
+
+  it('deve lidar com erros do repositório', async () => {
+    vi.mocked(mockRepository.findAllPaginated).mockRejectedValue(
+      new Error('Erro no Banco de Dados'),
+    );
+
+    const params: FilterThreatsDto = { page: 1, limit: 10 };
+
+    await expect(useCase.execute(params)).rejects.toThrow(
+      'Erro no Banco de Dados',
+    );
   });
 });
