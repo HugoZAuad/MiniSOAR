@@ -6,7 +6,8 @@ import { IngestionController } from './ingestion.controller';
 
 describe('IngestionController', () => {
   let controller: IngestionController;
-  const mockUseCase = { execute: vi.fn() };
+
+  const mockUseCase = { execute: vi.fn() } as unknown as IngestThreatsUseCase;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
