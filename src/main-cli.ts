@@ -2,7 +2,8 @@ import { CommandFactory } from 'nest-commander';
 import { WinstonModule } from 'nest-winston';
 import * as winston from 'winston';
 import 'winston-daily-rotate-file';
-import { AppModule } from './app.module';
+// IMPORTANTE: Importe o módulo dos comandos, não o da API Web
+import { CommandsModule } from './infra/cli/commands.module';
 
 async function bootstrap() {
   const logger = WinstonModule.createLogger({
@@ -32,6 +33,6 @@ async function bootstrap() {
     ],
   });
 
-  await CommandFactory.run(AppModule, logger);
+  await CommandFactory.run(CommandsModule, logger);
 }
 void bootstrap();
