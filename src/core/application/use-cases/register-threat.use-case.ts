@@ -1,5 +1,4 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { ThreatEmbedFactory } from '../../../infra/providers/notification/factories/threat-embed.factory';
 import { Threat } from '../../domain/entities/threat.entity';
 import {
   EVENT_DISPATCHER_PORT,
@@ -71,8 +70,7 @@ export class RegisterThreatUseCase {
 
   private async dispatchNotification(threat: Threat): Promise<void> {
     try {
-      const embed = ThreatEmbedFactory.create(threat);
-      await this.notification.sendAlert(embed);
+      await this.notification.sendAlert(threat);
     } catch (error: unknown) {
       this.logger.error(
         `[SOAR] Falha ao enviar alerta para o indicador ${threat.indicator}:`,

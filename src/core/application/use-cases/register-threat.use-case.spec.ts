@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThreatEmbedFactory } from '../../../infra/providers/notification/factories/threat-embed.factory';
 import { Threat } from '../../domain/entities/threat.entity';
 import { RegisterThreatUseCase } from './register-threat.use-case';
 
@@ -143,18 +142,6 @@ describe('RegisterThreatUseCase', () => {
   });
 
   describe('dispatchNotification', () => {
-    it('deve chamar ThreatEmbedFactory.create e notification.sendAlert', async () => {
-      const fakeEmbed = { title: 'Threat Alert' };
-      vi.mocked(ThreatEmbedFactory.create).mockReturnValue(fakeEmbed as never);
-
-      await sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 3 });
-
-      expect(ThreatEmbedFactory.create).toHaveBeenCalledWith(
-        expect.any(Threat),
-      );
-      expect(notificationMock.sendAlert).toHaveBeenCalledWith(fakeEmbed);
-    });
-
     it('deve logar erro se o envio de notificação falhar com instância de Error', async () => {
       notificationMock.sendAlert.mockRejectedValue(
         new Error('Notification error'),
@@ -229,5 +216,23 @@ describe('RegisterThreatUseCase', () => {
         sut.execute({ indicator: '1.1.1.1', type: 'IP', severity: 10 }),
       ).resolves.toBeInstanceOf(Threat);
     });
+  });
+
+  it('deve chamar o método sendAlert da porta de notificação passando a entidade Threat', async () => {
+    await sut.execute({
+      indicator: '1.1.1.1',
+      type: 'IP',
+      severity: 3,
+    });
+
+    expect(notificationMock.sendAlert).toHaveBeenCalledWith(expect.any(Threat));
+
+    expect(notificationMock.sendAlert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        indicator: '1.1.1.1',
+        type: 'IP',
+        severity: 3,
+      }),
+    );
   });
 });

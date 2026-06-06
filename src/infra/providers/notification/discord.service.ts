@@ -1,9 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import {
-  NotificationEmbed,
-  NotificationPort,
-} from '../../../core/domain/ports/notification.port';
+import { NotificationPort } from '../../../core/domain/ports/notification.port';
+import { Threat } from '../../../core/domain/entities/threat.entity';
+import { ThreatEmbedFactory } from './factories/threat-embed.factory';
 
 @Injectable()
 export class DiscordService implements NotificationPort {
@@ -14,7 +13,7 @@ export class DiscordService implements NotificationPort {
     this.webhookUrl = this.configService.get<string>('DISCORD_WEBHOOK_URL');
   }
 
-  async sendAlert(embed: NotificationEmbed): Promise<void> {
+  async sendAlert(threat: Threat): Promise<void> {
     if (!this.webhookUrl) {
       this.logger.warn(
         'Webhook do Discord não configurado (DISCORD_WEBHOOK_URL). Pulando envio de alerta.',
@@ -23,6 +22,8 @@ export class DiscordService implements NotificationPort {
     }
 
     try {
+      const embed = ThreatEmbedFactory.create(threat);
+
       const response = await fetch(this.webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -37,7 +38,9 @@ export class DiscordService implements NotificationPort {
         return;
       }
 
-      this.logger.log('Alerta tático enviado com sucesso para o Discord.');
+      this.logger.log(
+        `Alerta tático enviado com sucesso para o Discord (${threat.indicator}).`,
+      );
     } catch (error) {
       this.logger.error(
         'Erro inesperado ao comunicar com o webhook do Discord:',
