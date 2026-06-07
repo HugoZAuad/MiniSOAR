@@ -1,3 +1,4 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilterThreatsDto } from '../../../core/application/interface/filter-threats.dto';
@@ -23,6 +24,12 @@ describe('ThreatController', () => {
         {
           provide: ListThreatsUseCase,
           useValue: listUseCaseMock,
+        },
+        // Consistência com o ecossistema: Injeta o Mock do ConfigService
+        // exigido pelo ApiKeyGuard anexado ao controlador
+        {
+          provide: ConfigService,
+          useValue: { get: vi.fn().mockReturnValue('mock-key') },
         },
       ],
     }).compile();
