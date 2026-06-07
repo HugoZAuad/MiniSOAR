@@ -51,7 +51,8 @@ export class PrismaThreatRepository implements ThreatRepository {
   async findAllPaginated(
     params: FilterThreatsDto,
   ): Promise<PaginatedThreatsDto> {
-    const { page, limit, severity, indicator } = params;
+    const { page = 1, limit = 10, severity, indicator } = params;
+
     const skip = (page - 1) * limit;
 
     const where: Prisma.ThreatLogWhereInput = {
