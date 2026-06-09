@@ -25,6 +25,39 @@ export class Threat {
     this.validate();
   }
 
+  static create(props: {
+    indicator: string;
+    type: string;
+    severity?: number;
+    createdAt?: Date;
+    id?: string;
+    recurrencyCount?: number;
+    reputationScore?: number;
+    country?: string;
+  }): Threat {
+    const threat = new Threat(
+      props.indicator,
+      props.type,
+      props.severity,
+      props.createdAt,
+      props.id,
+    );
+
+    if (
+      props.recurrencyCount !== undefined ||
+      props.reputationScore !== undefined ||
+      props.country !== undefined
+    ) {
+      threat.enrich({
+        recurrencyCount: props.recurrencyCount,
+        reputationScore: props.reputationScore,
+        country: props.country,
+      });
+    }
+
+    return threat;
+  }
+
   private validate(): void {
     if (!this.severity || this.severity < 1 || this.severity > 10) {
       throw new Error('Severity must be between 1 and 10');
@@ -39,7 +72,6 @@ export class Threat {
     this.country = data.country ?? this.country;
     this.reputationScore = data.reputationScore ?? this.reputationScore;
     this.recurrencyCount = data.recurrencyCount ?? this.recurrencyCount;
-
     this.calculateHybridScore();
   }
 
@@ -49,7 +81,6 @@ export class Threat {
       : 0;
 
     const recurrencyWeight = Math.min(this.recurrencyCount * 0.5, 2);
-
     const totalScore = this.severity + reputationWeight + recurrencyWeight;
 
     this.hybridScore = Number(Math.min(10, totalScore).toFixed(1));

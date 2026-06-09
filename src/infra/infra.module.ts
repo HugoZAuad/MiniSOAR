@@ -1,5 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { APP_INTERCEPTOR } from '@nestjs/core';
+import { AuditLoggerInterceptor } from '../common/interceptors/audit-logger.interceptor';
 import { EVENT_DISPATCHER_PORT } from '../core/domain/ports/event-dispatcher.port';
 import { FIREWALL_PORT } from '../core/domain/ports/firewall.port';
 import { GEOIP_PORT } from '../core/domain/ports/geoip.port';
@@ -11,13 +13,18 @@ import { DiscordService } from '../infra/providers/notification/discord.service'
 import { EventEmitterAdapter } from './adapters/event/event-emitter.adapter';
 import { FetchGeoIpAdapter } from './adapters/geoip/fetch-geoip.adapter';
 import { AbuseIpDbAdapter } from './adapters/intelligence/abuseipdb.adapter';
-import { PrismaService } from './database/prisma/prisma.service';
+import { DynamicPlaybookListener } from './automation/listeners/dynamic-playbook.listener';
+import { DatabaseModule } from './database/database.module';
 import { PrismaThreatRepository } from './database/prisma/repositories/prisma-threat.repository';
 
 @Module({
-  imports: [ConfigModule],
+  imports: [ConfigModule, DatabaseModule],
   providers: [
-    PrismaService,
+    DynamicPlaybookListener,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: AuditLoggerInterceptor,
+    },
     { provide: NOTIFICATION_PORT, useClass: DiscordService },
     { provide: FIREWALL_PORT, useClass: LocalFirewallService },
     { provide: THREAT_REPOSITORY_TOKEN, useClass: PrismaThreatRepository },

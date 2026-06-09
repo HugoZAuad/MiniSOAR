@@ -25,8 +25,6 @@ describe('ThreatController', () => {
           provide: ListThreatsUseCase,
           useValue: listUseCaseMock,
         },
-        // Consistência com o ecossistema: Injeta o Mock do ConfigService
-        // exigido pelo ApiKeyGuard anexado ao controlador
         {
           provide: ConfigService,
           useValue: { get: vi.fn().mockReturnValue('mock-key') },

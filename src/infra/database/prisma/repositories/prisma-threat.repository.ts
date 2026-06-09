@@ -1,24 +1,47 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import type { FilterThreatsDto } from 'src/core/application/interface/filter-threats.dto';
 import type { PaginatedThreatsDto } from 'src/core/application/interface/paginated-threats.dto';
 import { ThreatAnalyticsDto } from '../../../../core/application/interface/threat-analytics.dto';
 import { Threat } from '../../../../core/domain/entities/threat.entity';
+import { EVENT_DISPATCHER_PORT } from '../../../../core/domain/ports/event-dispatcher.port';
 import { ThreatRepository } from '../../../../core/domain/repositories/threat-repository.interface';
 import { PrismaThreatMapper } from '../mappers/prisma-threat.mapper';
 import { PrismaService } from '../prisma.service';
 
+interface EventDispatcher {
+  emit?: (event: string, payload: unknown) => Promise<void>;
+  dispatch?: (event: string, payload: unknown) => Promise<void>;
+}
+
 @Injectable()
 export class PrismaThreatRepository implements ThreatRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(EVENT_DISPATCHER_PORT)
+    private readonly eventDispatcher: EventDispatcher | null,
+  ) {}
 
   async save(threat: Threat): Promise<void> {
     const data = PrismaThreatMapper.toPrisma(threat);
+
     await this.prisma.threatLog.upsert({
       where: { id: threat.id },
       update: data,
       create: data,
     });
+
+    if (
+      this.eventDispatcher &&
+      typeof this.eventDispatcher.emit === 'function'
+    ) {
+      await this.eventDispatcher.emit('threat.detected', { threat });
+    } else if (
+      this.eventDispatcher &&
+      typeof this.eventDispatcher.dispatch === 'function'
+    ) {
+      await this.eventDispatcher.dispatch('threat.detected', { threat });
+    }
   }
 
   async countByIndicator(indicator: string): Promise<number> {
@@ -53,10 +76,12 @@ export class PrismaThreatRepository implements ThreatRepository {
   ): Promise<PaginatedThreatsDto> {
     const { page = 1, limit = 10, severity, indicator } = params;
 
-    const skip = (page - 1) * limit;
+    const safePage = Number(page);
+    const safeLimit = Number(limit);
+    const skip = (safePage - 1) * safeLimit;
 
     const where: Prisma.ThreatLogWhereInput = {
-      severity: severity ? severity : undefined,
+      severity: severity ? Number(severity) : undefined,
       indicator: indicator ? { contains: indicator } : undefined,
     };
 
@@ -64,7 +89,7 @@ export class PrismaThreatRepository implements ThreatRepository {
       this.prisma.threatLog.findMany({
         where,
         skip,
-        take: limit,
+        take: safeLimit,
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.threatLog.count({ where }),
@@ -74,9 +99,9 @@ export class PrismaThreatRepository implements ThreatRepository {
       data: data.map((log) => PrismaThreatMapper.toDomain(log)),
       meta: {
         total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
+        page: safePage,
+        limit: safeLimit,
+        totalPages: Math.ceil(total / safeLimit),
       },
     };
   }
