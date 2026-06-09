@@ -1,27 +1,39 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-
-export interface AbuseIpDbResult {
-  indicator: string;
-  provider: string;
-  isMalicious: boolean;
-  score: number;
-  details: string;
-  countryCode: string;
-  usageType: string;
-  whitelisted: boolean;
-  lastReportedAt: Date;
-}
+import type {
+  ThreatIntelligencePort,
+  ThreatIntelResult,
+} from 'src/core/domain/ports/threat-intelligence.port';
 
 @Injectable()
-export class AbuseIpDbAdapter {
+export class AbuseIpDbAdapter implements ThreatIntelligencePort {
   private readonly apiKey: string | undefined;
 
   constructor(private readonly configService: ConfigService) {
     this.apiKey = this.configService.get<string>('ABUSEIPDB_API_KEY');
   }
 
-  public getMockResponse(indicator: string): AbuseIpDbResult {
+  async getReputationScore(indicator: string): Promise<number> {
+    const result = await this.checkIp(indicator);
+    return result.score;
+  }
+
+  checkIp(indicator: string): Promise<ThreatIntelResult> {
+    if (!this.apiKey) {
+      return Promise.resolve({
+        details: 'API Key ausente',
+        isMalicious: false,
+        score: 0,
+        provider: 'AbuseIPDB',
+        indicator,
+        whitelisted: false,
+      });
+    }
+
+    return Promise.resolve(this.getMockResponse(indicator));
+  }
+
+  private getMockResponse(indicator: string): ThreatIntelResult {
     return {
       indicator,
       provider: 'AbuseIPDB',
@@ -33,28 +45,5 @@ export class AbuseIpDbAdapter {
       whitelisted: false,
       lastReportedAt: new Date(),
     };
-  }
-
-  getReputationScore(indicator: string): number {
-    void indicator;
-    throw new Error('Method not implemented.');
-  }
-
-  async checkIp(indicator: string): Promise<AbuseIpDbResult> {
-    if (!this.apiKey) {
-      return {
-        details: 'API Key ausente',
-        isMalicious: false,
-        score: 0,
-        provider: 'AbuseIPDB',
-        indicator,
-        countryCode: 'BR',
-        usageType: 'Data Center',
-        whitelisted: false,
-        lastReportedAt: new Date(),
-      };
-    }
-
-    return await Promise.resolve(this.getMockResponse(indicator));
   }
 }
