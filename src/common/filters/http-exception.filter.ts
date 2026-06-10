@@ -4,15 +4,31 @@ import {
   ExceptionFilter,
   HttpException,
   HttpStatus,
+  Logger,
 } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
+  private readonly logger = new Logger(HttpExceptionFilter.name);
+
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
+
     const response = ctx.getResponse<Response>();
     const request = ctx.getRequest<Request>();
+
+    this.logger.error(`${request.method} ${request.url}`);
+
+    if (exception instanceof Error) {
+      console.error('\n===== STACK TRACE =====');
+      console.error(exception.stack);
+      console.error('=======================\n');
+    } else {
+      console.error('\n===== UNKNOWN ERROR =====');
+      console.error(exception);
+      console.error('=========================\n');
+    }
 
     const status =
       exception instanceof HttpException
