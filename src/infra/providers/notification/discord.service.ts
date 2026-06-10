@@ -1,51 +1,55 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { NotificationPort } from '../../../core/domain/ports/notification.port';
 import { Threat } from '../../../core/domain/entities/threat.entity';
-import { ThreatEmbedFactory } from './factories/threat-embed.factory';
 
 @Injectable()
-export class DiscordService implements NotificationPort {
-  private readonly logger = new Logger(DiscordService.name);
-  private readonly webhookUrl: string | undefined;
+export class DiscordService {
+  public readonly logger = new Logger(DiscordService.name);
 
-  constructor(private readonly configService: ConfigService) {
-    this.webhookUrl = this.configService.get<string>('DISCORD_WEBHOOK_URL');
-  }
+  constructor(private configService: ConfigService) {}
 
   async sendAlert(threat: Threat): Promise<void> {
-    if (!this.webhookUrl) {
-      this.logger.warn(
-        'Webhook do Discord não configurado (DISCORD_WEBHOOK_URL). Pulando envio de alerta.',
-      );
+    await this.sendNotification({
+      title: 'Ameaça Detectada',
+      message: `Ameaça em ${threat.indicator}`,
+    });
+  }
+
+  async sendNotification(payload: {
+    title: string;
+    message: string;
+  }): Promise<void> {
+    const webhookUrl = this.configService.get<string>('DISCORD_WEBHOOK_URL');
+
+    if (!webhookUrl) {
+      this.logger.warn('Webhook do Discord não configurado');
       return;
     }
 
     try {
-      const embed = ThreatEmbedFactory.create(threat);
-
-      const response = await fetch(this.webhookUrl, {
+      const response = await fetch(webhookUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ embeds: [embed] }),
+        body: JSON.stringify({
+          embeds: [{ title: payload.title, description: payload.message }],
+        }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        this.logger.error(
-          `Falha ao enviar alerta para o Discord. Status: ${response.status} - ${errorText}`,
+        this.logger.warn(
+          `Falha ao enviar notificação Discord. Status HTTP: ${response.status}`,
         );
         return;
       }
-
-      this.logger.log(
-        `Alerta tático enviado com sucesso para o Discord (${threat.indicator}).`,
-      );
     } catch (error) {
-      this.logger.error(
-        'Erro inesperado ao comunicar com o webhook do Discord:',
-        error,
-      );
+      if (error instanceof Error) {
+        this.logger.error('Erro de rede ao contactar a API do Discord:', error);
+      } else {
+        this.logger.error(
+          'Erro desconhecido ao contactar a API do Discord',
+          error as string,
+        );
+      }
     }
   }
 }

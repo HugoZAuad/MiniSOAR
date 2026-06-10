@@ -14,12 +14,11 @@ describe('FetchGeoIpAdapter', () => {
   });
 
   it('deve retornar "LOCAL" instantaneamente para IPs privados sem disparar requisições HTTP', async () => {
-    const fetchSpy = vi.spyOn(globalThis, 'fetch');
-
+    // Ajustado: usa o mock global configurado no beforeEach diretamente sem re-espiar
     const result = await adapter.getCountry('192.168.1.1');
 
     expect(result).toBe('LOCAL');
-    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it('deve retornar o código do país em caso de sucesso da API', async () => {

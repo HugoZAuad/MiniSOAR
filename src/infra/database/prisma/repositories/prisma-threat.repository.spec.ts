@@ -1,158 +1,264 @@
-import { ThreatLog as PrismaThreatLog } from '@prisma/client';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-argument */
+import { Test, TestingModule } from '@nestjs/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Threat } from '../../../../core/domain/entities/threat.entity';
+import { EVENT_DISPATCHER_PORT } from '../../../../core/domain/ports/event-dispatcher.port';
+import { PrismaThreatMapper } from '../mappers/prisma-threat.mapper';
 import { PrismaService } from '../prisma.service';
 import { PrismaThreatRepository } from './prisma-threat.repository';
 
+vi.mock('../mappers/prisma-threat.mapper');
+
+interface MockThreatLog {
+  upsert: ReturnType<typeof vi.fn>;
+  count: ReturnType<typeof vi.fn>;
+  findMany: ReturnType<typeof vi.fn>;
+  groupBy: ReturnType<typeof vi.fn>;
+}
+
+interface MockPrisma {
+  threatLog: MockThreatLog;
+  $transaction: ReturnType<typeof vi.fn>;
+}
+
+const mockPrismaService: MockPrisma = {
+  threatLog: {
+    upsert: vi.fn(),
+    count: vi.fn(),
+    findMany: vi.fn(),
+    groupBy: vi.fn(),
+  },
+  $transaction: vi.fn((ops: Promise<unknown>[]) => Promise.all(ops)),
+};
+
+const mockEventDispatcher = {
+  dispatch: vi.fn(),
+  emit: vi.fn(),
+};
+
+function makeThreat(): Threat {
+  return Object.assign(Object.create(Threat.prototype) as Threat, {
+    id: 'threat-uuid-123',
+    sourceIp: '185.220.101.5',
+    targetIp: '10.0.0.4',
+    severity: 1,
+    indicator: 'Tor Exit Node',
+    timestamp: new Date(),
+  });
+}
+
 describe('PrismaThreatRepository', () => {
-  const mockUpsert = vi.fn();
-  const mockCount = vi.fn();
-  const mockFindMany = vi.fn();
-  const mockGroupBy = vi.fn();
-  const mockTransaction = vi.fn();
-
-  const prismaMock = {
-    threatLog: {
-      upsert: mockUpsert,
-      count: mockCount,
-      findMany: mockFindMany,
-      groupBy: mockGroupBy,
-    },
-    $transaction: mockTransaction,
-  } as unknown as PrismaService;
-
   let repository: PrismaThreatRepository;
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-    repository = new PrismaThreatRepository(prismaMock);
+  beforeEach(async () => {
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PrismaThreatRepository,
+        { provide: PrismaService, useValue: mockPrismaService },
+        { provide: EVENT_DISPATCHER_PORT, useValue: mockEventDispatcher },
+      ],
+    }).compile();
+
+    repository = module.get<PrismaThreatRepository>(PrismaThreatRepository);
+    vi.resetAllMocks();
+
+    mockPrismaService.$transaction.mockImplementation(((
+      ops: Promise<unknown>[],
+    ) => Promise.all(ops)) as any);
   });
 
-  it('deve salvar uma ameaca executando o upsert no prisma', async () => {
-    const threat = new Threat('1.1.1.1', 'IP', 3);
-    mockUpsert.mockResolvedValueOnce({});
+  describe('save', () => {
+    it('deve persistir ameaça e disparar evento via emit', async () => {
+      mockPrismaService.threatLog.upsert.mockResolvedValue({
+        id: 'threat-uuid-123',
+      });
+      const threat = makeThreat();
+      await repository.save(threat);
+      expect(mockPrismaService.threatLog.upsert).toHaveBeenCalled();
+      expect(mockEventDispatcher.emit).toHaveBeenCalledWith('threat.detected', {
+        threat,
+      });
+      expect(mockEventDispatcher.dispatch).not.toHaveBeenCalled();
+    });
 
-    await repository.save(threat);
+    it('deve usar dispatch quando emit não existir no eventDispatcher', async () => {
+      const dispatchOnlyDispatcher = {
+        dispatch: vi.fn().mockResolvedValue(undefined),
+      };
+      const repo = new PrismaThreatRepository(
+        mockPrismaService as unknown as PrismaService,
+        dispatchOnlyDispatcher,
+      );
+      mockPrismaService.threatLog.upsert.mockResolvedValue({});
+      const threat = makeThreat();
+      await repo.save(threat);
+      expect(dispatchOnlyDispatcher.dispatch).toHaveBeenCalledWith(
+        'threat.detected',
+        { threat },
+      );
+    });
 
-    expect(mockUpsert).toHaveBeenCalledTimes(1);
-  });
-
-  it('deve contar os registros por indicador', async () => {
-    mockCount.mockResolvedValueOnce(5);
-
-    const count = await repository.countByIndicator('1.1.1.1');
-
-    expect(count).toBe(5);
-    expect(mockCount).toHaveBeenCalledWith({
-      where: { indicator: '1.1.1.1' },
+    it('deve persistir sem disparar evento se eventDispatcher for null', async () => {
+      const repo = new PrismaThreatRepository(
+        mockPrismaService as unknown as PrismaService,
+        null,
+      );
+      mockPrismaService.threatLog.upsert.mockResolvedValue({});
+      const partialThreat = { id: '1' } as Threat;
+      await expect(repo.save(partialThreat)).resolves.not.toThrow();
+      expect(mockEventDispatcher.emit).not.toHaveBeenCalled();
+      expect(mockEventDispatcher.dispatch).not.toHaveBeenCalled();
     });
   });
 
-  it('deve retornar todas as ameacas mapeadas para o dominio', async () => {
-    const rawLog: PrismaThreatLog = {
-      id: 'any-id',
-      indicator: '1.1.1.1',
-      type: 'IP',
-      severity: 3,
-      country: 'BR',
-      reputationScore: 50,
-      recurrencyCount: 1,
-      hybridScore: 5.5,
-      createdAt: new Date(),
-    };
+  describe('findAll', () => {
+    it('deve aplicar filtros de indicator e severity quando fornecidos', async () => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      await repository.findAll({ indicator: 'test', severity: 1 });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith({
+        where: { indicator: 'test', severity: 1 },
+      });
+    });
 
-    mockFindMany.mockResolvedValueOnce([rawLog]);
+    it('deve aplicar apenas indicator quando severity não for fornecido', async () => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      await repository.findAll({ indicator: 'ssh-scan' });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith({
+        where: { indicator: 'ssh-scan' },
+      });
+    });
 
-    const result = await repository.findAll();
+    it('deve aplicar apenas severity quando indicator não for fornecido', async () => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      await repository.findAll({ severity: 2 });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith({
+        where: { severity: 2 },
+      });
+    });
 
-    expect(result).toHaveLength(1);
-    expect(result[0]).toBeInstanceOf(Threat);
-    expect(result[0].indicator).toBe('1.1.1.1');
-  });
+    it('deve chamar findMany com where undefined quando nenhum filtro é passado', async () => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      await repository.findAll();
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith({
+        where: undefined,
+      });
+    });
 
-  it('deve buscar ameaças aplicando filtro de indicador', async () => {
-    mockFindMany.mockResolvedValueOnce([]);
+    it('deve retornar array vazio quando não há registros', async () => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      const result = await repository.findAll({});
+      expect(result).toEqual([]);
+    });
 
-    await repository.findAll({ indicator: '1.1.1.1' });
-
-    expect(mockFindMany).toHaveBeenCalledWith({
-      where: { indicator: '1.1.1.1' },
+    it('deve mapear registros do prisma para domain via toDomain', async () => {
+      const prismaRow = { id: 'abc', sourceIp: '10.0.0.1', severity: 2 };
+      const domainThreat = { id: 'abc' } as Threat;
+      mockPrismaService.threatLog.findMany.mockResolvedValue([prismaRow]);
+      vi.mocked(PrismaThreatMapper.toDomain).mockReturnValue(domainThreat);
+      const result = await repository.findAll({ indicator: 'test' });
+      expect(PrismaThreatMapper.toDomain).toHaveBeenCalledWith(prismaRow);
+      expect(result).toEqual([domainThreat]);
     });
   });
 
-  it('deve buscar ameaças aplicando filtro de severidade', async () => {
-    mockFindMany.mockResolvedValueOnce([]);
+  describe('findAllPaginated', () => {
+    beforeEach(() => {
+      mockPrismaService.threatLog.findMany.mockResolvedValue([]);
+      mockPrismaService.threatLog.count.mockResolvedValue(0);
+    });
 
-    await repository.findAll({ severity: 5 });
+    it('deve calcular skip e take corretamente com page e limit fornecidos', async () => {
+      await repository.findAllPaginated({ page: 2, limit: 5 });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 5,
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+        }),
+      );
+      expect(mockPrismaService.$transaction).toHaveBeenCalled();
+    });
 
-    expect(mockFindMany).toHaveBeenCalledWith({
-      where: { severity: 5 },
+    it('deve usar defaults page=1 e limit=10 quando não fornecidos', async () => {
+      await repository.findAllPaginated({} as any);
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 0, take: 10 }),
+      );
+    });
+
+    it('deve incluir severity e indicator no where quando fornecidos', async () => {
+      await repository.findAllPaginated({
+        page: 1,
+        limit: 10,
+        severity: 3,
+        indicator: 'scan',
+      });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            severity: 3,
+            indicator: expect.objectContaining({ contains: 'scan' }),
+          }),
+        }),
+      );
+    });
+
+    it('deve definir severity e indicator como undefined no where quando omitidos', async () => {
+      await repository.findAllPaginated({ page: 1, limit: 5 });
+      expect(mockPrismaService.threatLog.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { severity: undefined, indicator: undefined },
+        }),
+      );
+    });
+
+    it('deve retornar meta com totalPages calculado corretamente', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(25);
+      const result = await repository.findAllPaginated({ page: 1, limit: 10 });
+      expect(result.meta).toEqual({
+        total: 25,
+        page: 1,
+        limit: 10,
+        totalPages: 3,
+      });
+    });
+
+    it('deve mapear registros retornados pelo $transaction para domain', async () => {
+      const prismaRow = { id: 'x', sourceIp: '1.1.1.1', severity: 1 };
+      const domainThreat = { id: 'x' } as Threat;
+      mockPrismaService.threatLog.findMany.mockResolvedValue([prismaRow]);
+      mockPrismaService.threatLog.count.mockResolvedValue(1);
+      vi.mocked(PrismaThreatMapper.toDomain).mockReturnValue(domainThreat);
+      const result = await repository.findAllPaginated({ page: 1, limit: 10 });
+      expect(PrismaThreatMapper.toDomain).toHaveBeenCalledWith(prismaRow);
+      expect(result.data).toEqual([domainThreat]);
     });
   });
 
-  it('deve buscar analytics de ameaças', async () => {
-    mockCount.mockResolvedValueOnce(10);
-    mockGroupBy
-      .mockResolvedValueOnce([{ severity: 1, _count: { severity: 5 } }])
-      .mockResolvedValueOnce([
-        { indicator: '1.1.1.1', _count: { indicator: 2 } },
-      ]);
-
-    const result = await repository.getAnalytics();
-
-    expect(result.totalThreats).toBe(10);
-    expect(result.bySeverity).toEqual([{ level: 1, count: 5 }]);
-    expect(result.topIndicators).toEqual([{ indicator: '1.1.1.1', count: 2 }]);
+  describe('getAnalytics', () => {
+    it('deve processar agrupamentos por severidade e retornar estrutura correta', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(10);
+      mockPrismaService.threatLog.groupBy
+        .mockResolvedValueOnce([{ severity: 1, _count: { severity: 5 } }])
+        .mockResolvedValueOnce([
+          { indicator: 'test', _count: { indicator: 5 } },
+        ]);
+      const result = await repository.getAnalytics();
+      expect(result.totalThreats).toBe(10);
+      expect(result.bySeverity[0]).toEqual({ level: 1, count: 5 });
+      expect(result.topIndicators[0]).toEqual({ indicator: 'test', count: 5 });
+      expect(mockPrismaService.threatLog.groupBy).toHaveBeenCalledTimes(2);
+    });
   });
 
-  it('deve buscar ameaças paginadas', async () => {
-    const rawLog: any = {
-      id: '1',
-      indicator: '1.1.1.1',
-      type: 'IP',
-      severity: 1,
-    };
-    mockTransaction.mockResolvedValueOnce([[rawLog], 1]);
-
-    const result = await repository.findAllPaginated({
-      page: 1,
-      limit: 10,
-      severity: 1,
-      indicator: '1.1.1.1',
+  describe('countByIndicator', () => {
+    it('deve contar registros pelo indicator informado', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(7);
+      const result = await repository.countByIndicator('Tor Exit Node');
+      expect(result).toBe(7);
+      expect(mockPrismaService.threatLog.count).toHaveBeenCalledWith({
+        where: { indicator: 'Tor Exit Node' },
+      });
     });
-
-    expect(result.data).toHaveLength(1);
-    expect(result.meta.total).toBe(1);
-    expect(mockTransaction).toHaveBeenCalled();
-  });
-
-  it('deve buscar ameaças paginadas sem filtros', async () => {
-    const rawLog: any = {
-      id: '1',
-      indicator: '1.1.1.1',
-      type: 'IP',
-      severity: 1,
-    };
-
-    mockTransaction.mockResolvedValueOnce([[rawLog], 1]);
-
-    await repository.findAllPaginated({
-      page: 1,
-      limit: 10,
-    });
-
-    expect(mockFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { severity: undefined, indicator: undefined },
-      }),
-    );
-
-    expect(mockCount).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { severity: undefined, indicator: undefined },
-      }),
-    );
-
-    expect(mockTransaction).toHaveBeenCalled();
   });
 });

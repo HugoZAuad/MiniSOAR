@@ -59,7 +59,7 @@ export class RegisterThreatUseCase {
 
     this.eventDispatcher.dispatch('threat.created', threat);
 
-    void this.dispatchNotification(threat);
+    await this.dispatchNotification(threat);
 
     if (threat.isHighRisk()) {
       await this.dispatchMitigation(threat);
@@ -72,28 +72,23 @@ export class RegisterThreatUseCase {
     try {
       await this.notification.sendAlert(threat);
     } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[SOAR] Falha ao enviar alerta para o indicador ${threat.indicator}:`,
-        error instanceof Error ? error.message : String(error),
+        `[SOAR] Falha ao enviar alerta para ${threat.indicator}: ${message}`,
       );
     }
   }
 
   private async dispatchMitigation(threat: Threat): Promise<void> {
     try {
-      this.logger.warn(
-        `[SOAR 🛡️] Alto Risco Detectado! Acionando playbook de mitigação para: ${threat.indicator}`,
-      );
-
       await this.firewall.block(
         threat.indicator,
         threat.type as 'IP' | 'DOMAIN' | 'HASH',
       );
     } catch (error: unknown) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error);
+      const message = error instanceof Error ? error.message : String(error);
       this.logger.error(
-        `[SOAR ❌] Falha crítica ao executar Resposta Ativa para ${threat.indicator}: ${errorMessage}`,
+        `[SOAR ❌] Falha ao executar Resposta Ativa: ${message}`,
       );
     }
   }
