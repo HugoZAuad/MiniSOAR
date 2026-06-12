@@ -5,6 +5,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { InfraModule } from './infra/infra.module';
 import { ThreatModule } from './module/threat/threat.module';
+import { ThreatGateway } from './infra/gateways/threat.gateway';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ThreatModule } from './module/threat/threat.module';
       provide: APP_GUARD,
       useClass: ThrottlerGuard,
     },
+    ThreatGateway,
   ],
 })
 export class AppModule {}

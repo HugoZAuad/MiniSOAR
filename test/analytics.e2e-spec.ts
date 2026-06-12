@@ -30,7 +30,9 @@ describe('AnalyticsController (e2e)', () => {
       totalThreats: 1,
     });
 
-    const response = await request(app.getHttpServer()).get('/analytics/summary');
+    const response = await request(app.getHttpServer()).get(
+      '/analytics/summary',
+    );
 
     const body = response.body as SummaryResponse;
     expect(body.totalThreats).toBe(1);

@@ -21,7 +21,9 @@ describe('Fluxo Integrado do SOC: Ingestão -> Auditoria -> Playbook (E2E)', () 
 
   afterAll(async () => {
     // Mantém o banco limpo após o término do teste
-    await prisma.threatLog.deleteMany({ where: { indicator: '198.51.100.45' } });
+    await prisma.threatLog.deleteMany({
+      where: { indicator: '198.51.100.45' },
+    });
     await app.close();
   });
 
@@ -40,7 +42,9 @@ describe('Fluxo Integrado do SOC: Ingestão -> Auditoria -> Playbook (E2E)', () 
     expect(response.body).toBeDefined();
 
     // Confirma a persistência correta via banco
-    const savedLog = await prisma.threatLog.findUnique({ where: { id: payload.id } });
+    const savedLog = await prisma.threatLog.findUnique({
+      where: { id: payload.id },
+    });
     expect(savedLog).toBeTruthy();
     expect(savedLog?.severity).toBe(5);
   });

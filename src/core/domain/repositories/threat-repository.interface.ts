@@ -5,6 +5,10 @@ import { Threat } from '../entities/threat.entity';
 
 export interface ThreatRepository {
   save(threat: Threat): Promise<void>;
+
+  /** Atualiza somente o estado de contenção (ex: depois do firewall). */
+  updateContainment(threatId: string, contained: boolean): Promise<void>;
+
   findAll(params?: {
     indicator?: string;
     severity?: number;

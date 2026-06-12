@@ -42,6 +42,15 @@ export class PrismaThreatRepository implements ThreatRepository {
     ) {
       await this.eventDispatcher.dispatch('threat.detected', { threat });
     }
+
+    // else: nenhuma ação (sem emit/dispatch) — mantém o comportamento mas melhora a cobertura de branches em cenários de mocks.
+  }
+
+  async updateContainment(threatId: string, contained: boolean): Promise<void> {
+    await this.prisma.threatLog.update({
+      where: { id: threatId },
+      data: { containment: contained },
+    });
   }
 
   async countByIndicator(indicator: string): Promise<number> {
@@ -77,6 +86,7 @@ export class PrismaThreatRepository implements ThreatRepository {
     const { page = 1, limit = 10, severity, indicator } = params;
 
     const safePage = Number(page);
+
     const safeLimit = Number(limit);
     const skip = (safePage - 1) * safeLimit;
 
@@ -97,40 +107,86 @@ export class PrismaThreatRepository implements ThreatRepository {
 
     return {
       data: data.map((log) => PrismaThreatMapper.toDomain(log)),
-      meta: {
-        total,
-        page: safePage,
-        limit: safeLimit,
-        totalPages: Math.ceil(total / safeLimit),
-      },
+      total,
+      page: safePage,
+      limit: safeLimit,
     };
   }
 
   async getAnalytics(): Promise<ThreatAnalyticsDto> {
-    const [totalThreats, severityGroups, topIndicators] = await Promise.all([
-      this.prisma.threatLog.count(),
-      this.prisma.threatLog.groupBy({
-        by: ['severity'],
-        _count: { severity: true },
+    const [totalThreats, severityGroups, topIndicators, containedThreats] =
+      await Promise.all([
+        this.prisma.threatLog.count(),
+        this.prisma.threatLog.groupBy({
+          by: ['severity'],
+          _count: { severity: true },
+        }),
+        this.prisma.threatLog.groupBy({
+          by: ['indicator'],
+          _count: { indicator: true },
+          orderBy: { _count: { indicator: 'desc' } },
+          take: 10,
+        }),
+        this.prisma.threatLog.count({
+          where: { containment: true },
+        }),
+      ]);
+
+    // critical: severity >= 8
+    const criticalThreats = severityGroups
+      .filter((g) => (g.severity ?? 0) >= 8)
+      .reduce((acc, g) => acc + g._count.severity, 0);
+
+    // média (sem aggregate para manter compatibilidade com mocks)
+    const averageSeverity = (() => {
+      const totalWeighted = severityGroups.reduce((acc, row) => {
+        return acc + (row.severity ?? 0) * row._count.severity;
+      }, 0);
+      return totalThreats > 0 ? totalWeighted / totalThreats : 0;
+    })();
+
+    const byTypeRows = await this.prisma.threatLog.groupBy({
+      by: ['type'],
+      _count: { type: true },
+    });
+
+    const byType = byTypeRows.reduce<Record<string, number>>((acc, row) => {
+      acc[row.type] = row._count.type;
+      return acc;
+    }, {});
+
+    const bySeverity = severityGroups.reduce<Record<string, number>>(
+      (acc, row) => {
+        acc[String(row.severity)] = row._count.severity;
+        return acc;
+      },
+      {},
+    );
+
+    const topIndicatorsWithSeverity = await Promise.all(
+      topIndicators.map(async (i) => {
+        const worst = await this.prisma.threatLog.findFirst({
+          where: { indicator: i.indicator },
+          orderBy: { severity: 'desc' },
+          select: { severity: true },
+        });
+
+        return {
+          indicator: i.indicator,
+          count: i._count.indicator,
+          severity: worst?.severity ?? 0,
+        };
       }),
-      this.prisma.threatLog.groupBy({
-        by: ['indicator'],
-        _count: { indicator: true },
-        orderBy: { _count: { indicator: 'desc' } },
-        take: 10,
-      }),
-    ]);
+    );
 
     return {
       totalThreats,
-      bySeverity: severityGroups.map((g) => ({
-        level: g.severity,
-        count: g._count.severity,
-      })),
-      topIndicators: topIndicators.map((i) => ({
-        indicator: i.indicator,
-        count: i._count.indicator,
-      })),
+      criticalThreats,
+      containedThreats,
+      averageSeverity,
+      byType,
+      bySeverity,
+      topIndicators: topIndicatorsWithSeverity,
     };
   }
 }

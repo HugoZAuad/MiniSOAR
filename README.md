@@ -1,123 +1,62 @@
 # 🛡️ MiniSOAR (SOAR Miniaturizado)
 
-![Coverage](https://img.shields.io/badge/coverage-100%25-brightgreen)
 ![NestJS](https://img.shields.io/badge/NestJS-E0234E?style=flat&logo=nestjs&logoColor=white)
 ![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat&logo=typescript&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=flat&logo=postgresql&logoColor=white)
 
-> **Orquestração, Automação e Resposta de Segurança** em escala compacta — do indicador de ameaça ao alerta, com resposta ativa quando necessário.
+> **Orquestração, Automação e Resposta de Segurança** em escala compacta.
 
-O **MiniSOAR** é uma plataforma de automação de segurança desenvolvida em **NestJS (TypeScript)**, pautada nos princípios da **Clean Architecture**. O sistema processa indicadores de ameaça (**IP**, **DOMAIN**, **HASH**), enriquecendo-os com dados de inteligência e geo-localização, calculando um score de risco e orquestrando respostas automatizadas.
+O **MiniSOAR** é uma plataforma de automação de segurança construída em **NestJS (TypeScript)** seguindo **Clean Architecture (Ports & Adapters)**.
 
----
-
-## 📑 Tabela de Conteúdo
-
-- [Funcionalidades](#-funcionalidades)
-- [Arquitetura](#-arquitetura)
-- [Fluxo de Processamento](#-fluxo-de-processamento)
-- [Como Utilizar](#-como-utilizar)
-- [API & CLI](#-api--cli)
-- [Configuração](#-configuração)
-- [Testes e Qualidade](#-testes-e-qualidade)
-- [Observabilidade](#-observabilidade)
+- Registra **indicadores de ameaça** (`IP`, `DOMAIN`, `HASH`)
+- Faz enriquecimento (reputação/GeoIP/recorrência)
+- Calcula e persiste um **score de risco** + auditoria
+- Pode executar **resposta ativa** (contenção via Firewall) quando o risco é alto
 
 ---
 
-## 🚀 Funcionalidades
+## Guia rápido para front-end (copiar/colar)
 
-- **Ingestão Versátil:** Processamento via **API HTTP** (real-time) ou **CLI** com processamento **por Stream** (lote).
-- **Inteligência Tática:** Enriquecimento automático (Reputação externa, GeoIP, Recorrência interna).
-- **Risco Híbrido:** Cálculo de score customizado para priorização de incidentes.
-- **Resposta Ativa:** Contenção automática (Firewall/Bloqueio) para ameaças de alto risco.
-- **Notificação:** Alertas táticos em tempo real via **webhook do Discord** (Embeds estruturados).
-- **Persistência Segura:** Histórico e auditoria com **Prisma ORM** e **PostgreSQL**.
+### 1) Configure a URL base
 
----
+- Prefixo global: `api/v1`
+- Porta padrão: `PORT` (default **3001**)
 
-## 🏗️ Arquitetura
+Exemplo:
 
-O projeto segue estritamente a **Clean Architecture (Ports & Adapters)**, garantindo baixo acoplamento e facilidade de evolução.
+- `http://localhost:3001/api/v1`
 
-```text
-src/
-├── core/             # Lógica de Negócio (Entities, Use Cases, Interfaces)
-├── infra/            # Implementações de Infraestrutura (Adapters, HTTP, CLI, DB)
-└── module/          # Módulos NestJS (DI/Config de wiring)
-```
+### 2) Sempre autentique com API Key
 
-- **Domain (core/domain):** Entidades (ex.: `Threat`) e contratos de portas/repositórios.
-- **Application (core/application):** Casos de uso (ex.: `RegisterThreatUseCase`).
-- **Infrastructure (infra/):** Implementações concretas (Prisma, Discord, Firewall, GeoIP, Threat Intelligence).
-- **Controllers/DTOs/Guards:** camada de entrada e segurança (HTTP) e execução (CLI).
+Todas as rotas abaixo exigem `x-api-key`.
 
----
+- Header: **`x-api-key`**
+- Valor: **env `API_KEY`** no servidor
+- Se `API_KEY` não existir ou a chave estiver errada: **401**
 
-## ⚙️ Fluxo de Processamento (RegisterThreatUseCase)
+Exemplo de header:
 
-O processamento segue uma pipeline resiliente e **não bloqueante**.
-
-### Entrada
-- Validação de `severity` (**1-10**) e do indicador.
-
-### Enriquecimento Paralelo
-- Busca de **recorrência interna**
-- Busca de **reputação externa** (Threat Intelligence)
-- Busca de **geo-localização** (GeoIP)
-
-> Executado em paralelo com `Promise.all`, reduzindo latência.
-
-### Cálculo de Score
-- A entidade `Threat` aplica lógica de saturação e pesos para determinar o `hybridScore`.
-- A decisão de alto risco usa o limiar `hybridScore >= 8`.
-
-### Persistência
-- Registro do evento no banco (Prisma → Postgres) na tabela `ThreatLog`.
-
-### Notificação (Discord)
-- Envio de **embed tático** via webhook.
-- **Falhas de notificação não derrubam o fluxo** (captura e log de erro).
-
-### Mitigação (Opcional)
-- Se `isHighRisk()` for verdadeiro:
-  - execução do playbook de contenção via `FirewallPort.block(...)`.
-- **Falhas de mitigação não derrubam o caller** (captura e log de erro).
-
----
-
-## 🛠️ Como Utilizar
-
-### Pré-requisitos
-- Node.js >= 18
-- Postgres
-- Variáveis de ambiente configuradas
-
-### Instalação
 ```bash
-npm install
+-H "x-api-key: SUA_API_KEY"
 ```
 
-### Execução (API)
-```bash
-npm run start:dev
-```
+### 3) Validações importantes (payload)
 
-### Execução (CLI / Scanner de Lote)
-```bash
-# Processa um arquivo de indicadores linha a linha
-npm run cli -- scan --file ./data/indicadores.txt
-```
+- `severity` é **inteiro** e deve estar em **1..10**
+- `type` é recebido como string, mas o backend normaliza para **UPPERCASE** (`type.toUpperCase()`)
 
 ---
 
-## 🔗 API & CLI
+## Endpoints consumidos pelo front-end
 
-### API HTTP
+> Payloads e query params passam por validação com `ValidationPipe`.
 
-**POST /threats**
+### POST `/api/v1/threats`
 
-- **Guard:** `ApiKeyGuard`
-- **Payload (JSON):**
+**Registrar uma ameaça** (fluxo base: persistência + enriquecimento + notificação + possível contenção).
+
+- Resposta esperada: **201**
+
+**Request body**
 
 ```json
 {
@@ -127,49 +66,193 @@ npm run cli -- scan --file ./data/indicadores.txt
 }
 ```
 
-### CLI
+**Erros comuns**
 
-**scan** (modo lote)
+- **400**: payload inválido (ex.: `severity` fora de 1..10)
+- **401**: `x-api-key` ausente/inválida
 
-- Lê arquivo com **ReadStream**
-- Identifica o tipo automaticamente (IP/Hash/Domain)
-- Envia cada linha para o use case
+**Exemplo (curl)**
+
+```bash
+curl -X POST "http://localhost:3001/api/v1/threats" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: SUA_API_KEY" \
+  -d '{"indicator":"1.1.1.1","type":"IP","severity":5}'
+```
+
+**Exemplo (fetch no front-end)**
+
+```ts
+const baseUrl = 'http://localhost:3001/api/v1';
+const apiKey = 'SUA_API_KEY';
+
+await fetch(`${baseUrl}/threats`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'x-api-key': apiKey,
+  },
+  body: JSON.stringify({
+    indicator: '1.1.1.1',
+    type: 'IP',
+    severity: 5,
+  }),
+});
+```
 
 ---
 
-## ⚙️ Configuração
+### GET `/api/v1/threats`
 
-As seguintes variáveis de ambiente são necessárias:
+**Listar e filtrar ameaças** com paginação.
+
+- Resposta esperada: **200**
+
+**Query params**
+
+- `page` (int >= 1, opcional; default: `1`)
+- `limit` (int >= 1, opcional; default: **15** no DTO)
+- `severity` (int >= 1, opcional)
+- `indicator` (string, opcional)
+
+**Exemplo (curl)**
+
+```bash
+curl -X GET "http://localhost:3001/api/v1/threats?page=1&limit=20&severity=3" \
+  -H "x-api-key: SUA_API_KEY"
+```
+
+**Exemplo (fetch no front-end)**
+
+```ts
+const baseUrl = 'http://localhost:3001/api/v1';
+const apiKey = 'SUA_API_KEY';
+
+const params = new URLSearchParams({
+  page: '1',
+  limit: '15',
+  severity: '3',
+});
+
+const res = await fetch(`${baseUrl}/threats?${params.toString()}`, {
+  headers: { 'x-api-key': apiKey },
+});
+const data = await res.json();
+```
+
+---
+
+### POST `/api/v1/ingestion`
+
+**Ingerir um lote (array)** de ameaças.
+
+- Resposta esperada: **201** (quando o lote é aceito)
+
+**Request body**
+
+```json
+{
+  "threats": [
+    { "indicator": "1.1.1.1", "type": "IP", "severity": 3 },
+    { "indicator": "example.com", "type": "DOMAIN", "severity": 7 }
+  ]
+}
+```
+
+**Exemplo (curl)**
+
+```bash
+curl -X POST "http://localhost:3001/api/v1/ingestion" \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: SUA_API_KEY" \
+  -d '{
+    "threats": [
+      {"indicator":"1.1.1.1","type":"IP","severity":3}
+    ]
+  }'
+```
+
+---
+
+### GET `/api/v1/analytics`
+
+**Retorna analytics agregadas**.
+
+- Resposta esperada: **200**
+
+**Exemplo (curl)**
+
+```bash
+curl -X GET "http://localhost:3001/api/v1/analytics" \
+  -H "x-api-key: SUA_API_KEY"
+```
+
+---
+
+## Exemplos de fluxo (para entender o comportamento)
+
+### 1) Cadastrar uma threat (tela de “detecção”)
+
+1. Front-end chama `POST /api/v1/threats`
+2. Backend normaliza `type` para uppercase
+3. Backend salva no banco
+4. Backend tenta notificar (Discord) e, se risco alto, bloqueia via Firewall
+
+### 2) Enviar lote (tela/batch de ingestão)
+
+- Front-end chama `POST /api/v1/ingestion` com `threats: [...]`
+- Cada item do array passa pelo mesmo fluxo base do `POST /api/v1/threats`
+
+### 3) Consultar histórico (tela de listagem)
+
+- Front-end chama `GET /api/v1/threats?page&limit&severity&indicator`
+
+### 4) Consultar analytics (dashboard)
+
+- Front-end chama `GET /api/v1/analytics`
+
+---
+
+## Configuração (variáveis de ambiente)
+
+Principais:
 
 - **`DATABASE_URL`**
-  - String de conexão com o PostgreSQL (usada pelo Prisma)
+  - Conexão com PostgreSQL (Prisma)
+
+- **`API_KEY`**
+  - Valor esperado pelo `ApiKeyGuard` no header `x-api-key`
 
 - **`DISCORD_WEBHOOK_URL`**
-  - Webhook para envio de alertas táticos ao Discord
-  - Se ausente: o sistema apenas loga warning e segue
+  - Webhook do Discord para alertas
+  - Se ausente, o sistema segue apenas logando
+
+- **`PORT`**
+  - Porta HTTP (default: `3001`)
+
+- **`FRONTEND_URL`** (opcional)
+  - Origem liberada no CORS (além de `http://localhost:3000`)
 
 ---
 
-## 🧪 Testes e Qualidade
+## Testes e qualidade
 
-O projeto mantém alta confiabilidade com testes unitários e integração.
-
-- **Unitários:** `npm test`
-- **E2E:** `npm run test:e2e`
-- **Cobertura:** `npm run test:cov`
+- Unitários: `npm test`
+- E2E: `npm run test:e2e`
+- Cobertura: `npm run test:cov`
 
 ---
 
-## 📈 Observabilidade
+## Observabilidade
 
-- Logs centralizados com **Winston** (rotativos em `logs/`)
-- Tratamento global de exceções com **HttpExceptionFilter**
-- **Rate Limiting** com `@nestjs/throttler`
-- Interceptação de requests via **LoggingInterceptor**
+- Logging com **Winston** (arquivo rotativo em `logs/`)
+- `HttpExceptionFilter` para tratamento global
+- `LoggingInterceptor` para interceptar requests
+- Rate limiting via `@nestjs/throttler` (configurado no `AppModule`)
 
 ---
 
-## 📝 Licença
+## Licença
 
-Projeto desenvolvido sob padrões de arquitetura de software profissional.
+Projeto desenvolvido seguindo práticas de arquitetura de software.
 
