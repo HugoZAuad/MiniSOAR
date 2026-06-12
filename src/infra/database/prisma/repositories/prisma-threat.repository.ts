@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import type { FilterThreatsDto } from 'src/core/application/interface/filter-threats.dto';
 import type { PaginatedThreatsDto } from 'src/core/application/interface/paginated-threats.dto';
 import { ThreatAnalyticsDto } from '../../../../core/application/interface/threat-analytics.dto';
+import { ThreatHistoryDto } from '../../../../core/application/interface/threat-history.dto';
 import { Threat } from '../../../../core/domain/entities/threat.entity';
 import { EVENT_DISPATCHER_PORT } from '../../../../core/domain/ports/event-dispatcher.port';
 import { ThreatRepository } from '../../../../core/domain/repositories/threat-repository.interface';
@@ -26,31 +27,99 @@ export class PrismaThreatRepository implements ThreatRepository {
     const data = PrismaThreatMapper.toPrisma(threat);
 
     await this.prisma.threatLog.upsert({
-      where: { id: threat.id },
+      where: {
+        id: threat.id,
+      },
+
       update: data,
+
       create: data,
     });
+
+    await this.createHistoryEvent(
+      threat.id,
+      'created',
+      'IOC Created',
+      `Indicator ${threat.indicator} registered`,
+    );
 
     if (
       this.eventDispatcher &&
       typeof this.eventDispatcher.emit === 'function'
     ) {
-      await this.eventDispatcher.emit('threat.detected', { threat });
+      await this.eventDispatcher.emit('threat.detected', {
+        threat,
+      });
     } else if (
       this.eventDispatcher &&
       typeof this.eventDispatcher.dispatch === 'function'
     ) {
-      await this.eventDispatcher.dispatch('threat.detected', { threat });
+      await this.eventDispatcher.dispatch('threat.detected', {
+        threat,
+      });
+    }
+  }
+
+  async getHistory(threatId: string): Promise<ThreatHistoryDto[]> {
+    return this.prisma.threatHistory.findMany({
+      where: {
+        threatId,
+      },
+
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async createHistoryEvent(
+    threatId: string,
+    type: string,
+    title: string,
+    description: string,
+  ): Promise<void> {
+    await this.prisma.threatHistory.create({
+      data: {
+        threatId,
+        type,
+        title,
+        description,
+      },
+    });
+  }
+
+  async findById(id: string): Promise<Threat | null> {
+    const threat = await this.prisma.threatLog.findUnique({
+      where: { id },
+    });
+
+    if (!threat) {
+      return null;
     }
 
-    // else: nenhuma ação (sem emit/dispatch) — mantém o comportamento mas melhora a cobertura de branches em cenários de mocks.
+    return PrismaThreatMapper.toDomain(threat);
   }
 
   async updateContainment(threatId: string, contained: boolean): Promise<void> {
     await this.prisma.threatLog.update({
-      where: { id: threatId },
-      data: { containment: contained },
+      where: {
+        id: threatId,
+      },
+
+      data: {
+        containment: contained,
+      },
     });
+
+    await this.createHistoryEvent(
+      threatId,
+
+      contained ? 'contained' : 'released',
+
+      contained ? 'Threat Contained' : 'Threat Released',
+
+      contained ? 'IOC successfully contained' : 'IOC containment removed',
+    );
   }
 
   async countByIndicator(indicator: string): Promise<number> {
@@ -132,12 +201,10 @@ export class PrismaThreatRepository implements ThreatRepository {
         }),
       ]);
 
-    // critical: severity >= 8
     const criticalThreats = severityGroups
       .filter((g) => (g.severity ?? 0) >= 8)
       .reduce((acc, g) => acc + g._count.severity, 0);
 
-    // média (sem aggregate para manter compatibilidade com mocks)
     const averageSeverity = (() => {
       const totalWeighted = severityGroups.reduce((acc, row) => {
         return acc + (row.severity ?? 0) * row._count.severity;

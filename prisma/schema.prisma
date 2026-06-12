@@ -7,17 +7,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model ThreatHistory {
+  id          String   @id @default(uuid())
+  threatId    String
+  type        String
+  title       String
+  description String
+  createdAt   DateTime @default(now())
+
+  threat ThreatLog @relation(fields: [threatId], references: [id], onDelete: Cascade)
+
+  @@index([threatId])
+}
+
 model ThreatLog {
-  id              String   @id @default(uuid())
+  id              String   @id
   indicator       String
   type            String
   severity        Int
-  containment     Boolean  @default(false)
   country         String?
   reputationScore Int?
   recurrencyCount Int      @default(0)
-  hybridScore     Float    @default(0.0)
+  hybridScore     Float
+  riskScore       Int
+  containment     Boolean  @default(false)
   createdAt       DateTime @default(now())
 
-  @@map("threat_logs")
+  history ThreatHistory[]
 }
