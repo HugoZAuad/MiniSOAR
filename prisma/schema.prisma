@@ -12,6 +12,7 @@ model ThreatLog {
   indicator       String
   type            String
   severity        Int
+  containment     Boolean  @default(false)
   country         String?
   reputationScore Int?
   recurrencyCount Int      @default(0)

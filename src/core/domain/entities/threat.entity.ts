@@ -12,6 +12,8 @@ export class Threat {
   public reputationScore?: number;
   public recurrencyCount: number = 0;
   public hybridScore: number;
+  public containment: boolean;
+  public riskScore: number;
 
   constructor(
     public readonly indicator: string,
@@ -19,9 +21,13 @@ export class Threat {
     public severity: number = 1,
     public readonly createdAt: Date = new Date(),
     id?: string,
+    containment: boolean = false,
   ) {
+    this.containment = containment;
+
     this.id = id ?? uuidv4();
     this.hybridScore = this.severity;
+    this.riskScore = this.calculateRiskScore();
     this.validate();
   }
 
@@ -73,6 +79,11 @@ export class Threat {
     this.reputationScore = data.reputationScore ?? this.reputationScore;
     this.recurrencyCount = data.recurrencyCount ?? this.recurrencyCount;
     this.calculateHybridScore();
+    this.riskScore = this.calculateRiskScore();
+  }
+
+  private calculateRiskScore(): number {
+    return Math.max(0, Math.min(100, Math.round(this.hybridScore * 10)));
   }
 
   private calculateHybridScore(): void {

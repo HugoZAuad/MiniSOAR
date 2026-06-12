@@ -1,4 +1,3 @@
-// src/core/application/interface/filter-threats.dto.ts
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
 
@@ -13,7 +12,7 @@ export class FilterThreatsDto {
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit: number = 10;
+  limit: number = 15;
 
   @IsOptional()
   @Type(() => Number)

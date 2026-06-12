@@ -8,7 +8,8 @@ describe('PrismaThreatMapper', () => {
   const mockId = 'any-uuid';
 
   it('deve converter corretamente uma Entidade de Domínio para o modelo do Prisma', () => {
-    const threat = new Threat('1.1.1.1', 'IP', 3, mockDate, mockId);
+    const threat = new Threat('1.1.1.1', 'IP', 3, mockDate, mockId, false);
+
     threat.enrich({
       country: 'US',
       reputationScore: 85,
@@ -22,6 +23,7 @@ describe('PrismaThreatMapper', () => {
       indicator: '1.1.1.1',
       type: 'IP',
       severity: 3,
+      containment: false,
       country: 'US',
       reputationScore: 85,
       recurrencyCount: 2,
@@ -36,6 +38,7 @@ describe('PrismaThreatMapper', () => {
       indicator: '8.8.8.8',
       type: 'IP',
       severity: 2,
+      containment: false,
       country: 'BR',
       reputationScore: 10,
       recurrencyCount: 0,
@@ -54,7 +57,7 @@ describe('PrismaThreatMapper', () => {
   });
 
   it('deve mapear corretamente para nulo os campos opcionais se a entidade não estiver enriquecida', () => {
-    const threat = new Threat('1.1.1.1', 'IP', 1, mockDate, mockId);
+    const threat = new Threat('1.1.1.1', 'IP', 1, mockDate, mockId, false);
 
     const result = PrismaThreatMapper.toPrisma(threat);
 
@@ -68,6 +71,7 @@ describe('PrismaThreatMapper', () => {
       indicator: '8.8.8.8',
       type: 'IP',
       severity: 2,
+      containment: false,
       country: null,
       reputationScore: null,
       recurrencyCount: 0,

@@ -7,7 +7,7 @@ import { THREAT_REPOSITORY_TOKEN } from '../src/core/domain/repositories/threat-
 
 describe('ThreatController - History (e2e)', () => {
   let app: INestApplication;
-  
+
   const mockRepo = {
     findAllPaginated: vi.fn(),
   };
@@ -29,7 +29,7 @@ describe('ThreatController - History (e2e)', () => {
       data: [{ id: '1', indicator: '1.1.1.1' }],
       meta: { total: 1, page: 1, limit: 10, totalPages: 1 },
     };
-    
+
     mockRepo.findAllPaginated.mockResolvedValue(mockResponse);
 
     const response = await request(app.getHttpServer())

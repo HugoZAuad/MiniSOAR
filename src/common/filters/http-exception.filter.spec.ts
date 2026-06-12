@@ -106,6 +106,21 @@ describe('HttpExceptionFilter', () => {
     );
   });
 
+  it('deve lidar com exception não sendo Error como desconhecido (branch else de Error)', () => {
+    // booleanamente não é instanceof Error
+    filter.catch('boom', mockHost);
+
+    expect(mockStatus).toHaveBeenCalledWith(500);
+    expect(mockJson).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 500,
+        error: 'Internal Error',
+        message: 'Internal server error',
+        path: '/test',
+      }),
+    );
+  });
+
   it('deve sempre incluir timestamp e path na resposta', () => {
     filter.catch(new Error('qualquer'), mockHost);
 

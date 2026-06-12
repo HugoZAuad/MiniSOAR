@@ -20,7 +20,6 @@ export class AuditLoggerInterceptor implements NestInterceptor {
     const url = (req.url as string) || 'UNKNOWN';
     const ip = (req.ip as string) || '127.0.0.1';
 
-    // Ignora log para GET por regra de negócio, se necessário, ou apenas loga
     if (method === 'GET') return next.handle();
 
     const originalBody = req.body as SanitizablePayload | null | undefined;

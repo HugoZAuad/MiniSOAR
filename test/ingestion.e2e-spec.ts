@@ -13,7 +13,7 @@ describe('IngestionController (e2e)', () => {
     }).compile();
 
     app = moduleFixture.createNestApplication();
-    app.useGlobalPipes(new ValidationPipe()); 
+    app.useGlobalPipes(new ValidationPipe());
     await app.init();
   });
 
@@ -21,7 +21,7 @@ describe('IngestionController (e2e)', () => {
     return request(app.getHttpServer())
       .post('/ingestion/stream')
       .set('x-api-key', process.env.API_KEY || 'test-key')
-      .send({ threats: [{ indicator: 'invalid' }] }) 
+      .send({ threats: [{ indicator: 'invalid' }] })
       .expect(400);
   });
 

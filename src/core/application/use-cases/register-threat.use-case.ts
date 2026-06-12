@@ -103,6 +103,10 @@ export class RegisterThreatUseCase {
         threat.indicator,
         threat.type as 'IP' | 'DOMAIN' | 'HASH',
       );
+
+      // Firewall/mitigação executou com sucesso => marcar como contida.
+      threat.containment = true;
+      await this.threatRepository.updateContainment(threat.id, true);
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : String(error);
 

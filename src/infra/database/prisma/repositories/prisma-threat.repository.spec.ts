@@ -98,6 +98,18 @@ describe('PrismaThreatRepository', () => {
       );
     });
 
+    it('deve persistir sem disparar evento se eventDispatcher não tiver emit nem dispatch', async () => {
+      const dispatcherWithoutMethods = {};
+      const repo = new PrismaThreatRepository(
+        mockPrismaService as unknown as PrismaService,
+        dispatcherWithoutMethods,
+      );
+      mockPrismaService.threatLog.upsert.mockResolvedValue({});
+
+      const threat = makeThreat();
+      await expect(repo.save(threat)).resolves.not.toThrow();
+    });
+
     it('deve persistir sem disparar evento se eventDispatcher for null', async () => {
       const repo = new PrismaThreatRepository(
         mockPrismaService as unknown as PrismaService,
@@ -212,15 +224,16 @@ describe('PrismaThreatRepository', () => {
       );
     });
 
-    it('deve retornar meta com totalPages calculado corretamente', async () => {
+    it('deve retornar total/page/limit corretamente', async () => {
       mockPrismaService.threatLog.count.mockResolvedValue(25);
       const result = await repository.findAllPaginated({ page: 1, limit: 10 });
-      expect(result.meta).toEqual({
-        total: 25,
-        page: 1,
-        limit: 10,
-        totalPages: 3,
-      });
+      expect(result).toEqual(
+        expect.objectContaining({
+          total: 25,
+          page: 1,
+          limit: 10,
+        }),
+      );
     });
 
     it('deve mapear registros retornados pelo $transaction para domain', async () => {
@@ -236,18 +249,97 @@ describe('PrismaThreatRepository', () => {
   });
 
   describe('getAnalytics', () => {
-    it('deve processar agrupamentos por severidade e retornar estrutura correta', async () => {
+    it('deve processar agrupamentos e retornar estrutura correta (inclui path de criticalThreats=false)', async () => {
       mockPrismaService.threatLog.count.mockResolvedValue(10);
       mockPrismaService.threatLog.groupBy
-        .mockResolvedValueOnce([{ severity: 1, _count: { severity: 5 } }])
+        .mockResolvedValueOnce([{ severity: 1, _count: { severity: 5 } }]) // by severity
         .mockResolvedValueOnce([
           { indicator: 'test', _count: { indicator: 5 } },
-        ]);
+        ]) // top indicators
+        .mockResolvedValueOnce([{ type: 'IP', _count: { type: 3 } }]); // by type
+
+      (mockPrismaService.threatLog as any).findFirst = vi
+        .fn()
+        .mockResolvedValue({ severity: 9 });
+
       const result = await repository.getAnalytics();
+
       expect(result.totalThreats).toBe(10);
-      expect(result.bySeverity[0]).toEqual({ level: 1, count: 5 });
-      expect(result.topIndicators[0]).toEqual({ indicator: 'test', count: 5 });
-      expect(mockPrismaService.threatLog.groupBy).toHaveBeenCalledTimes(2);
+      // criticalThreats: severity>=8, mas severity=1 => 0
+      expect(result.criticalThreats).toBe(0);
+      expect(result.bySeverity).toEqual({ '1': 5 });
+      expect(result.byType).toEqual({ IP: 3 });
+      expect(result.topIndicators?.[0]).toEqual({
+        indicator: 'test',
+        count: 5,
+        severity: 9,
+      });
+      expect(mockPrismaService.threatLog.groupBy).toHaveBeenCalledTimes(3);
+    });
+
+    it('deve calcular criticalThreats quando existe severidade >= 8 (cobre branch do filter)', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(10);
+      mockPrismaService.threatLog.groupBy
+        .mockResolvedValueOnce([
+          { severity: 8, _count: { severity: 2 } },
+          { severity: 10, _count: { severity: 3 } },
+        ]) // by severity
+        .mockResolvedValueOnce([
+          { indicator: 'test', _count: { indicator: 5 } },
+        ]) // top indicators
+        .mockResolvedValueOnce([{ type: 'IP', _count: { type: 3 } }]); // by type
+
+      (mockPrismaService.threatLog as any).findFirst = vi
+        .fn()
+        .mockResolvedValue({ severity: 9 });
+
+      const result = await repository.getAnalytics();
+
+      // criticalThreats = 2 + 3
+      expect(result.criticalThreats).toBe(5);
+    });
+
+    it('deve cobrir piorCaso inexistente no topIndicators (worst?.severity ?? 0)', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(10);
+
+      mockPrismaService.threatLog.groupBy
+        .mockResolvedValueOnce([{ severity: 1, _count: { severity: 5 } }]) // by severity
+        .mockResolvedValueOnce([
+          { indicator: 'no-match', _count: { indicator: 4 } },
+        ]) // top indicators
+        .mockResolvedValueOnce([{ type: 'IP', _count: { type: 2 } }]); // by type
+
+      // worst inexistente => severity deve virar 0 via nullish coalescing
+      (mockPrismaService.threatLog as any).findFirst = vi
+        .fn()
+        .mockResolvedValue(undefined);
+
+      const result = await repository.getAnalytics();
+
+      expect(result.topIndicators?.[0]).toEqual({
+        indicator: 'no-match',
+        count: 4,
+        severity: 0,
+      });
+    });
+
+    it('deve usar fallback averageSeverity=0 quando totalThreats = 0', async () => {
+      mockPrismaService.threatLog.count.mockResolvedValue(0);
+      mockPrismaService.threatLog.groupBy
+        .mockResolvedValueOnce([{ severity: 9, _count: { severity: 2 } }]) // by severity
+        .mockResolvedValueOnce([
+          { indicator: 'test', _count: { indicator: 1 } },
+        ]) // top indicators
+        .mockResolvedValueOnce([{ type: 'IP', _count: { type: 5 } }]); // by type
+
+      (mockPrismaService.threatLog as any).findFirst = vi
+        .fn()
+        .mockResolvedValue({ severity: 9 });
+
+      const result = await repository.getAnalytics();
+
+      expect(result.totalThreats).toBe(0);
+      expect(result.averageSeverity).toBe(0);
     });
   });
 

@@ -9,6 +9,7 @@ export class PrismaThreatMapper {
       raw.severity,
       raw.createdAt,
       raw.id,
+      raw.containment,
     );
 
     threat.enrich({
@@ -26,6 +27,7 @@ export class PrismaThreatMapper {
       indicator: threat.indicator,
       type: threat.type,
       severity: threat.severity,
+      containment: threat.containment,
       country: threat.country ?? null,
       reputationScore: threat.reputationScore ?? null,
       recurrencyCount: threat.recurrencyCount,
