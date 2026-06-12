@@ -11,9 +11,10 @@ export class Threat {
   public country?: string;
   public reputationScore?: number;
   public recurrencyCount: number = 0;
-  public hybridScore: number;
+
+  public hybridScore!: number;
+  public riskScore!: number;
   public containment: boolean;
-  public riskScore: number;
 
   constructor(
     public readonly indicator: string,
@@ -23,12 +24,12 @@ export class Threat {
     id?: string,
     containment: boolean = false,
   ) {
+    this.id = id ?? uuidv4();
     this.containment = containment;
 
-    this.id = id ?? uuidv4();
-    this.hybridScore = this.severity;
-    this.riskScore = this.calculateRiskScore();
     this.validate();
+
+    this.recalculate(); // <- ordem correta
   }
 
   static create(props: {
@@ -37,6 +38,7 @@ export class Threat {
     severity?: number;
     createdAt?: Date;
     id?: string;
+    containment?: boolean;
     recurrencyCount?: number;
     reputationScore?: number;
     country?: string;
@@ -44,56 +46,57 @@ export class Threat {
     const threat = new Threat(
       props.indicator,
       props.type,
-      props.severity,
-      props.createdAt,
+      props.severity ?? 1,
+      props.createdAt ?? new Date(),
       props.id,
+      props.containment ?? false,
     );
 
-    if (
-      props.recurrencyCount !== undefined ||
-      props.reputationScore !== undefined ||
-      props.country !== undefined
-    ) {
-      threat.enrich({
-        recurrencyCount: props.recurrencyCount,
-        reputationScore: props.reputationScore,
-        country: props.country,
-      });
-    }
+    threat.enrich({
+      recurrencyCount: props.recurrencyCount,
+      reputationScore: props.reputationScore,
+      country: props.country,
+    });
 
     return threat;
   }
 
   private validate(): void {
-    if (!this.severity || this.severity < 1 || this.severity > 10) {
+    if (this.severity < 1 || this.severity > 10) {
       throw new Error('Severity must be between 1 and 10');
     }
+  }
+
+  public enrich(data: ThreatEnrichment): void {
+    if (data.country !== undefined) this.country = data.country;
+    if (data.reputationScore !== undefined)
+      this.reputationScore = data.reputationScore;
+    if (data.recurrencyCount !== undefined)
+      this.recurrencyCount = data.recurrencyCount;
+
+    this.recalculate();
   }
 
   public isHighRisk(): boolean {
     return this.hybridScore >= 8;
   }
 
-  public enrich(data: ThreatEnrichment): void {
-    this.country = data.country ?? this.country;
-    this.reputationScore = data.reputationScore ?? this.reputationScore;
-    this.recurrencyCount = data.recurrencyCount ?? this.recurrencyCount;
-    this.calculateHybridScore();
-    this.riskScore = this.calculateRiskScore();
-  }
-
-  private calculateRiskScore(): number {
-    return Math.max(0, Math.min(100, Math.round(this.hybridScore * 10)));
-  }
-
-  private calculateHybridScore(): void {
+  private recalculate(): void {
     const reputationWeight = this.reputationScore
       ? (this.reputationScore / 100) * 3
       : 0;
 
     const recurrencyWeight = Math.min(this.recurrencyCount * 0.5, 2);
-    const totalScore = this.severity + reputationWeight + recurrencyWeight;
 
-    this.hybridScore = Number(Math.min(10, totalScore).toFixed(1));
+    this.hybridScore = Number(
+      Math.min(10, this.severity + reputationWeight + recurrencyWeight).toFixed(
+        1,
+      ),
+    );
+
+    this.riskScore = Math.max(
+      0,
+      Math.min(100, Math.round(this.hybridScore * 10)),
+    );
   }
 }

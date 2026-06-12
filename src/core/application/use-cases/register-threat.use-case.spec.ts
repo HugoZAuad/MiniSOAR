@@ -146,7 +146,6 @@ describe('RegisterThreatUseCase', () => {
 
   describe('dispatchNotification - branch coverage', () => {
     it('deve cobrir o branch de Error (instanceof Error = true)', async () => {
-      // Força o caminho: error instanceof Error
       vi.mocked(notificationMock.sendAlert).mockRejectedValue(
         new Error('Erro real de sistema'),
       );
